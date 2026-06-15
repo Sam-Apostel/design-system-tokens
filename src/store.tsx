@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo, useReducer, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useReducer, type ReactNode } from "react";
 import type { Token, TokenValue } from "./types";
 import { parseValue, indexByName, resolve } from "./lib/value";
 import { tokensFromCss, classifyAll } from "./lib/parseCss";
@@ -14,6 +14,7 @@ type Action =
   | { type: "setValue"; id: string; raw: string }
   | { type: "relink"; id: string; ref: string | null }
   | { type: "add"; name: string; raw: string }
+  | { type: "addMany"; items: { name: string; raw: string }[] }
   | { type: "remove"; id: string }
   | { type: "setMode"; name: string }
   | { type: "addMode" }
@@ -137,6 +138,26 @@ function mutate(tokens: Token[], action: Action): Token[] {
         order: tokens.length,
       };
       return classifyAll([...tokens, token]);
+    }
+
+    case "addMany": {
+      const existing = new Set(tokens.map((t) => t.name));
+      let order = tokens.length;
+      const additions: Token[] = [];
+      for (const it of action.items) {
+        const name = it.name.trim().replace(/^--/, "");
+        if (!name || existing.has(name)) continue;
+        existing.add(name);
+        additions.push({
+          id: newId(),
+          name,
+          value: parseValue(it.raw || "#000000"),
+          category: "other",
+          order: order++,
+        });
+      }
+      if (!additions.length) return tokens;
+      return classifyAll([...tokens, ...additions]);
     }
 
     case "remove":
@@ -271,6 +292,34 @@ function reducer(state: HState, action: Action): HState {
   }
 }
 
+/* --------------------------- persistence --------------------------- */
+// Work is auto-saved to localStorage so a reload doesn't lose it. This stays
+// fully client-side — nothing leaves the browser. A shared #t= link still wins
+// over local state so opening someone's link shows their tokens, not yours.
+
+const STORAGE_KEY = "token-studio:v1";
+
+function loadPersisted(): Snap | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const snap = JSON.parse(raw) as Snap;
+    if (!snap || !Array.isArray(snap.tokens) || !Array.isArray(snap.modeList)) return null;
+    return snap;
+  } catch {
+    return null;
+  }
+}
+
+function persist(snap: Snap): void {
+  try {
+    if (snap.tokens.length === 0) localStorage.removeItem(STORAGE_KEY);
+    else localStorage.setItem(STORAGE_KEY, JSON.stringify(snap));
+  } catch {
+    /* private mode / quota — persistence is best-effort */
+  }
+}
+
 /* --------------------------- context --------------------------- */
 
 interface Store {
@@ -287,12 +336,19 @@ const Ctx = createContext<Store | null>(null);
 
 export function StoreProvider({ children, initialCss }: { children: ReactNode; initialCss?: string }) {
   const [state, dispatch] = useReducer(reducer, undefined, () => {
+    // Priority: explicit prop > shared link (#t=) > auto-saved local work > empty.
     const seed = initialCss ?? cssFromHash() ?? undefined;
     const present = seed
       ? expandLightDark(tokensFromCss(seed))
-      : { tokens: [], modeList: ["base"], activeMode: "base" };
+      : loadPersisted() ?? { tokens: [], modeList: ["base"], activeMode: "base" };
     return { past: [], present, future: [] };
   });
+
+  // Auto-save the present snapshot whenever it changes.
+  useEffect(() => {
+    persist(state.present);
+  }, [state.present]);
+
   const value = useMemo<Store>(
     () => ({
       tokens: state.present.tokens,

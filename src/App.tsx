@@ -22,6 +22,7 @@ import { SemanticsView } from "./components/SemanticsView";
 import { DependencyGraph } from "./components/DependencyGraph";
 import { ComponentsView } from "./components/ComponentsView";
 import { CreateTokenModal } from "./components/CreateTokenModal";
+import { GeneratorModal } from "./components/GeneratorModal";
 import { DocsModal } from "./components/DocsModal";
 import type { RecItem } from "./lib/recommendations";
 
@@ -45,6 +46,7 @@ export default function App() {
   const [importing, setImporting] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [newTypeStyle, setNewTypeStyle] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [docsOpen, setDocsOpen] = useState(false);
   const [createItem, setCreateItem] = useState<RecItem | null>(null);
   const [shared, setShared] = useState(false);
@@ -178,6 +180,7 @@ export default function App() {
                   <div className="tb-menu-backdrop" onClick={closeMenu} />
                   <div className="tb-menu-panel" role="menu">
                     <button className="tb-item" onClick={() => { setImporting(true); closeMenu(); }}>Import…</button>
+                    <button className="tb-item" onClick={() => { setGenerating(true); closeMenu(); }}>Generate a scale…</button>
                     {!empty && <button className="tb-item" onClick={() => { share(); closeMenu(); }}>{shared ? "Link copied ✓" : "Share link"}</button>}
                     <button className="tb-item" onClick={() => { setDocsOpen(true); closeMenu(); }}>Token guide</button>
 
@@ -208,6 +211,19 @@ export default function App() {
                             {o.label}
                           </button>
                         ))}
+
+                        <div className="tb-sep" />
+                        <button
+                          className="tb-item danger"
+                          onClick={() => {
+                            if (confirm("Clear all tokens and start over? This can't be undone with ⌘Z.")) {
+                              dispatch({ type: "clear" });
+                            }
+                            closeMenu();
+                          }}
+                        >
+                          Clear all tokens…
+                        </button>
                       </>
                     )}
                   </div>
@@ -218,7 +234,7 @@ export default function App() {
         </div>
 
         {empty ? (
-          <EmptyState onImport={() => setImporting(true)} />
+          <EmptyState onImport={() => setImporting(true)} onGenerate={() => setGenerating(true)} />
         ) : (
           <Main
             tab={tab}
@@ -229,6 +245,7 @@ export default function App() {
         )}
 
         {importing && <ImportModal onClose={() => setImporting(false)} />}
+        {generating && <GeneratorModal onClose={() => setGenerating(false)} />}
         {exporting && <ExportModal onClose={() => setExporting(false)} />}
         {newTypeStyle && <TypeStyleModal onClose={() => setNewTypeStyle(false)} />}
         {docsOpen && <DocsModal onClose={() => setDocsOpen(false)} />}

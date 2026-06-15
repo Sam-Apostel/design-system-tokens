@@ -1668,6 +1668,215 @@ input[type="color"] {
 .cp-caption { font-size: var(--text-caption-size, 0.75rem); color: var(--muted-foreground, var(--text-muted, #6b7280)); }
 
 /* ===================================================================
+   Scale generator
+   =================================================================== */
+.gen-body { display: grid; gap: 18px; }
+.gen-controls {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px 16px;
+}
+.gen-controls .field label { color: var(--text-dim); }
+.gen-controls input[type="range"] { width: 100%; accent-color: var(--accent); }
+
+.gen-ramp-preview {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.gen-ramp-chip {
+  flex: 1 1 0;
+  min-width: 62px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  text-align: center;
+}
+.gen-ramp-color {
+  height: 56px;
+  border-radius: 8px;
+  border: 1px solid var(--hairline);
+  position: relative;
+}
+.gen-dup {
+  position: absolute;
+  top: 3px;
+  right: 4px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--warning);
+  color: #2a1a00;
+  font-size: 11px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.gen-ramp-step { font-size: 11px; font-weight: 700; color: var(--text-dim); }
+.gen-ramp-hex { font-size: 10px; color: var(--text-faint); }
+.gen-ramp-l { font-size: 9.5px; color: var(--text-faint); }
+
+.gen-num-preview { display: flex; flex-direction: column; gap: 2px; }
+.gen-num-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 1.4fr) 64px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 5px 6px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+}
+.gen-num-row:hover { background: var(--bg-elev); }
+.gen-num-row.dup { opacity: 0.55; }
+.gen-num-label { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gen-num-val { font-size: 12px; color: var(--text-dim); }
+.gen-num-bar-wrap { display: flex; align-items: center; min-width: 0; }
+.gen-num-bar {
+  height: 16px;
+  background: linear-gradient(90deg, var(--accent), #c46bff);
+  border-radius: 4px;
+  min-width: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--on-accent);
+  font-weight: 700;
+  line-height: 1;
+  overflow: hidden;
+}
+.gen-dup-tag {
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--warning);
+  font-weight: 700;
+}
+
+@media (max-width: 880px) {
+  .gen-controls { grid-template-columns: 1fr 1fr; }
+  .gen-num-row { grid-template-columns: minmax(90px, 1fr) 56px 1fr auto; }
+}
+
+/* ===================================================================
+   OKLCH color editor
+   =================================================================== */
+.oklch {
+  display: grid;
+  gap: 12px;
+}
+.oklch-swatch {
+  height: 52px;
+  border-radius: 8px;
+  border: 1px solid var(--hairline);
+  position: relative;
+  background-image: linear-gradient(45deg, var(--checker) 25%, transparent 25%),
+    linear-gradient(-45deg, var(--checker) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, var(--checker) 75%),
+    linear-gradient(-45deg, transparent 75%, var(--checker) 75%);
+  background-size: 12px 12px;
+}
+.oklch-clamp {
+  position: absolute;
+  bottom: 5px;
+  right: 6px;
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 700;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  border-radius: 4px;
+  padding: 1px 6px;
+}
+.oklch-slider {
+  display: grid;
+  gap: 5px;
+}
+.oklch-slider-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 11px;
+}
+.oklch-axis {
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.oklch-axis b {
+  color: var(--text-dim);
+  font-family: var(--mono);
+  margin-right: 4px;
+}
+.oklch-val {
+  color: var(--text-dim);
+  font-size: 11.5px;
+}
+.oklch-track-wrap {
+  position: relative;
+  height: 18px;
+  display: flex;
+  align-items: center;
+}
+.oklch-track {
+  position: absolute;
+  inset: 4px 0;
+  border-radius: 5px;
+  border: 1px solid var(--hairline);
+  pointer-events: none;
+}
+.oklch-marker {
+  position: absolute;
+  top: 1px;
+  bottom: 1px;
+  width: 2px;
+  background: var(--text);
+  opacity: 0.55;
+  transform: translateX(-1px);
+  pointer-events: none;
+  border-radius: 1px;
+}
+.oklch-track-wrap input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  position: relative;
+  width: 100%;
+  height: 18px;
+  background: transparent;
+  margin: 0;
+  cursor: pointer;
+}
+.oklch-track-wrap input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid rgba(0, 0, 0, 0.55);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+.oklch-track-wrap input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid rgba(0, 0, 0, 0.55);
+}
+.oklch-track-wrap input[type="range"]::-moz-range-track {
+  background: transparent;
+}
+.oklch-hex {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.oklch-hex .text-input {
+  flex: 1;
+}
+
+/* ===================================================================
    Toolbar (single row, no wrap) + overflow menu
    =================================================================== */
 .brand { flex: 0 0 auto; align-items: center; }
@@ -1724,6 +1933,8 @@ input[type="color"] {
 .tb-item:hover:not(:disabled) { background: var(--bg-elev-2); }
 .tb-item:disabled { opacity: 0.4; cursor: default; }
 .tb-item.active { color: var(--accent); }
+.tb-item.danger { color: var(--danger); }
+.tb-item.danger:hover:not(:disabled) { background: color-mix(in oklab, var(--danger), transparent 86%); }
 .tb-sep { height: 1px; background: var(--border-soft); margin: 5px 4px; }
 .tb-label {
   font-size: 10.5px;

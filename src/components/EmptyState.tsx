@@ -19,7 +19,7 @@ const EXAMPLE = `:root {
   --font-weight-bold: 700;
 }`;
 
-export function EmptyState({ onImport }: { onImport: () => void }) {
+export function EmptyState({ onImport, onGenerate }: { onImport: () => void; onGenerate: () => void }) {
   const { dispatch } = useStore();
 
   return (
@@ -31,12 +31,16 @@ export function EmptyState({ onImport }: { onImport: () => void }) {
         <p className="muted" style={{ maxWidth: 560, lineHeight: 1.6 }}>
           Paste your CSS custom properties and Token Studio organizes them into groups
           and layers, then lets you edit, relink, visualize and lint them — all in the
-          browser. Nothing is uploaded or stored.
+          browser. Or build a scale from scratch. Your work is auto-saved locally;
+          nothing is ever uploaded to a server.
         </p>
 
         <div className="empty-actions">
           <button className="btn primary" onClick={onImport}>
             Import CSS
+          </button>
+          <button className="btn" onClick={onGenerate}>
+            Generate a scale
           </button>
           <button className="btn" onClick={() => dispatch({ type: "load", css: SAMPLE_CSS })}>
             Load example tokens

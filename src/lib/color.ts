@@ -296,6 +296,46 @@ export function oklchToRgb(L: number, C: number, h: number): Omit<RGB, "a"> {
   return oklabToRgb(L, C * Math.cos(hr), C * Math.sin(hr));
 }
 
+export function rgbToOklch(c: RGB): { L: number; C: number; h: number } {
+  const { L, a, b } = rgbToOklab(c);
+  const C = Math.sqrt(a * a + b * b);
+  let h = (Math.atan2(b, a) * 180) / Math.PI;
+  if (h < 0) h += 360;
+  return { L, C, h };
+}
+
+/** Convert OKLCH to a hex string, gamut-clamped into sRGB. */
+export function oklchToHex(L: number, C: number, h: number, a = 1): string {
+  return toHex({ ...oklchToRgb(L, C, h), a });
+}
+
+/** True if an OKLCH triple lands inside the sRGB gamut (no channel clipping). */
+export function oklchInGamut(L: number, C: number, h: number): boolean {
+  const hr = (h * Math.PI) / 180;
+  const l_ = L + 0.3963377774 * (C * Math.cos(hr)) + 0.2158037573 * (C * Math.sin(hr));
+  const m_ = L - 0.1055613458 * (C * Math.cos(hr)) - 0.0638541728 * (C * Math.sin(hr));
+  const s_ = L - 0.0894841775 * (C * Math.cos(hr)) - 1.291485548 * (C * Math.sin(hr));
+  const lin = [l_ * l_ * l_, m_ * m_ * m_, s_ * s_ * s_];
+  const r = 4.0767416621 * lin[0] - 3.3077115913 * lin[1] + 0.2309699292 * lin[2];
+  const g = -1.2684380046 * lin[0] + 2.6097574011 * lin[1] - 0.3413193965 * lin[2];
+  const b = -0.0041960863 * lin[0] - 0.7034186147 * lin[1] + 1.707614701 * lin[2];
+  const eps = 0.0001;
+  return [r, g, b].every((v) => v >= -eps && v <= 1 + eps);
+}
+
+/** Largest in-gamut chroma for a given L/h, found by binary search. */
+export function maxChroma(L: number, h: number): number {
+  if (L <= 0 || L >= 1) return 0;
+  let lo = 0;
+  let hi = 0.4;
+  for (let i = 0; i < 24; i++) {
+    const mid = (lo + hi) / 2;
+    if (oklchInGamut(L, mid, h)) lo = mid;
+    else hi = mid;
+  }
+  return lo;
+}
+
 /* ------------------------------------------------------------------ *
  * CIELAB (D65)
  * ------------------------------------------------------------------ */

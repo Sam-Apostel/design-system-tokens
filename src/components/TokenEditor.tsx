@@ -2,7 +2,8 @@ import { useState } from "react";
 import type { Token } from "../types";
 import { useStore } from "../store";
 import { resolve } from "../lib/value";
-import { parseColor, toCssDisplay, toHex } from "../lib/color";
+import { parseColor, toCssDisplay } from "../lib/color";
+import { OklchEditor } from "./OklchEditor";
 
 /** Inline editor for a single token: rename, edit value, relink alias. */
 export function TokenEditor({ token, onClose }: { token: Token; onClose: () => void }) {
@@ -70,27 +71,16 @@ export function TokenEditor({ token, onClose }: { token: Token; onClose: () => v
               <> via {r.chain.map((c) => `--${c}`).join(" → ")}</>
             )}
           </p>
+          {rgb && <div className="swatch-lg" style={{ background: toCssDisplay(rgb) }} />}
         </div>
       ) : (
         <div className="field">
           <label>Value</label>
           {rgb ? (
-            <div className="link-row">
-              <input
-                type="color"
-                value={toHex({ ...rgb, a: 1 })}
-                onChange={(e) =>
-                  dispatch({ type: "setValue", id: token.id, raw: e.target.value })
-                }
-              />
-              <input
-                value={token.value.kind === "raw" ? token.value.raw : ""}
-                spellCheck={false}
-                onChange={(e) =>
-                  dispatch({ type: "setValue", id: token.id, raw: e.target.value })
-                }
-              />
-            </div>
+            <OklchEditor
+              value={token.value.kind === "raw" ? token.value.raw : toCssDisplay(rgb)}
+              onChange={(raw) => dispatch({ type: "setValue", id: token.id, raw })}
+            />
           ) : (
             <input
               value={token.value.kind === "raw" ? token.value.raw : ""}
@@ -110,8 +100,6 @@ export function TokenEditor({ token, onClose }: { token: Token; onClose: () => v
           </button>
         </div>
       )}
-
-      {rgb && <div className="swatch-lg" style={{ background: toCssDisplay(rgb) }} />}
 
       <div className="actions">
         <button className="btn small" onClick={onClose}>
