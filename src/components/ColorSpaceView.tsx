@@ -98,6 +98,9 @@ export function ColorSpaceView() {
   const [mode, setMode] = useState<PlotMode>("ab");
   const [showLinks, setShowLinks] = useState(true);
   const [fit, setFit] = useState(true);
+  const [focusRamp, setFocusRamp] = useState<string | null>(null);
+  const [hoverRamp, setHoverRamp] = useState<string | null>(null);
+  const emphasize = hoverRamp ?? focusRamp;
 
   const items = useMemo<PlotItem[]>(() => {
     const colors = tokens.filter((t) => t.category === "color");
@@ -166,7 +169,7 @@ export function ColorSpaceView() {
       ) : (
         <>
           <div className="plot-hero">
-            <Plot title="All colors" items={items} mode={mode} showLinks={showLinks} axis={axis} fit={fit} big />
+            <Plot title="All colors" items={items} mode={mode} showLinks={showLinks} axis={axis} fit={fit} emphasize={emphasize} big />
           </div>
 
           {scales.length > 0 && (
@@ -176,19 +179,24 @@ export function ColorSpaceView() {
                 <span className="faint" style={{ fontSize: 11, textTransform: "none", letterSpacing: 0 }}>
                   sorted most-uneven first
                 </span>
+                <div className="spacer" />
+                {focusRamp && (
+                  <button className="btn small" onClick={() => setFocusRamp(null)}>
+                    Focusing {focusRamp} ✕
+                  </button>
+                )}
               </div>
               <div className="plot-grid">
                 {scales.map(({ key, group, metrics }) => (
-                  <Plot
+                  <div
                     key={key}
-                    title={key}
-                    items={group}
-                    mode={mode}
-                    showLinks={showLinks}
-                    axis={axis}
-                    fit={fit}
-                    metrics={metrics}
-                  />
+                    className={`plot-cell ${focusRamp === key ? "focused" : ""}`}
+                    onClick={() => setFocusRamp((cur) => (cur === key ? null : key))}
+                    onMouseEnter={() => setHoverRamp(key)}
+                    onMouseLeave={() => setHoverRamp((h) => (h === key ? null : h))}
+                  >
+                    <Plot title={key} items={group} mode={mode} showLinks={showLinks} axis={axis} fit={fit} metrics={metrics} />
+                  </div>
                 ))}
               </div>
             </>
@@ -218,6 +226,7 @@ function Plot({
   fit,
   big,
   metrics,
+  emphasize,
 }: {
   title: string;
   items: PlotItem[];
@@ -227,6 +236,7 @@ function Plot({
   fit: boolean;
   big?: boolean;
   metrics?: RampMetrics;
+  emphasize?: string | null;
 }) {
   const bounds = useMemo(() => computeBounds(items, mode, fit), [items, mode, fit]);
 
@@ -234,9 +244,9 @@ function Plot({
     if (!showLinks) return null;
     const m = new Map<string, PlotItem[]>();
     for (const it of items) (m.get(it.ramp) ?? m.set(it.ramp, []).get(it.ramp)!).push(it);
-    return [...m.values()]
-      .filter((g) => g.length > 1)
-      .map((g) => g.map((it) => project(it.pt, mode, bounds)));
+    return [...m.entries()]
+      .filter(([, g]) => g.length > 1)
+      .map(([ramp, g]) => ({ ramp, pts: g.map((it) => project(it.pt, mode, bounds)) }));
   }, [items, mode, showLinks, bounds]);
 
   // Origin crosshair (only meaningful in the chroma plane, and only if in view).
@@ -257,13 +267,32 @@ function Plot({
         <text x={14} y={S / 2} textAnchor="middle" fontSize="12" fill="var(--text-faint)" transform={`rotate(-90 14 ${S / 2})`}>
           {axis.y}
         </text>
-        {link?.map((pts, i) => (
-          <polyline key={i} points={pts.map((p) => `${p.px},${p.py}`).join(" ")} fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth={1.5} />
-        ))}
+        {link?.map(({ ramp, pts }, i) => {
+          const dim = emphasize != null && ramp !== emphasize;
+          return (
+            <polyline
+              key={i}
+              points={pts.map((p) => `${p.px},${p.py}`).join(" ")}
+              fill="none"
+              stroke={dim ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.25)"}
+              strokeWidth={emphasize === ramp ? 2.5 : 1.5}
+            />
+          );
+        })}
         {items.map((it) => {
           const { px, py } = project(it.pt, mode, bounds);
+          const dim = emphasize != null && it.ramp !== emphasize;
           return (
-            <circle key={it.token.id} cx={px} cy={py} r={big ? 7 : 6} fill={it.css} stroke="rgba(0,0,0,0.5)" strokeWidth={1}>
+            <circle
+              key={it.token.id}
+              cx={px}
+              cy={py}
+              r={big ? 7 : 6}
+              fill={it.css}
+              stroke="rgba(0,0,0,0.5)"
+              strokeWidth={1}
+              opacity={dim ? 0.12 : 1}
+            >
               <title>{`--${it.token.name}\n${it.hex}`}</title>
             </circle>
           );

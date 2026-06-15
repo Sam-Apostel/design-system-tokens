@@ -1092,3 +1092,17 @@ input[type="color"] {
 .type-form-grid .field:first-child {
   grid-column: 1 / -1;
 }
+
+/* ---------- Plot focus ---------- */
+.plot-cell {
+  cursor: pointer;
+  border-radius: 12px;
+  transition: outline-color 0.1s ease;
+  outline: 2px solid transparent;
+}
+.plot-cell:hover {
+  outline-color: var(--accent-dim);
+}
+.plot-cell.focused {
+  outline-color: var(--accent);
+}
