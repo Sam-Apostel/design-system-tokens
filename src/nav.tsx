@@ -6,6 +6,7 @@ export type Tab =
   | "contrast"
   | "semantics"
   | "graph"
+  | "components"
   | "spacing"
   | "typography"
   | "checks"

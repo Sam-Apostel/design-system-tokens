@@ -20,6 +20,7 @@ import { EmptyState } from "./components/EmptyState";
 import { TypeStyleModal } from "./components/TypeStyleModal";
 import { SemanticsView } from "./components/SemanticsView";
 import { DependencyGraph } from "./components/DependencyGraph";
+import { ComponentsView } from "./components/ComponentsView";
 import { CreateTokenModal } from "./components/CreateTokenModal";
 import { DocsModal } from "./components/DocsModal";
 import type { RecItem } from "./lib/recommendations";
@@ -32,6 +33,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "graph", label: "Graph" },
   { id: "spacing", label: "Spacing" },
   { id: "typography", label: "Typography" },
+  { id: "components", label: "Components" },
   { id: "checks", label: "Checks" },
   { id: "tokens", label: "All tokens" },
 ];
@@ -47,6 +49,7 @@ export default function App() {
   const [createItem, setCreateItem] = useState<RecItem | null>(null);
   const [shared, setShared] = useState(false);
   const [vision, setVision] = useState<CvdMode>("none");
+  const [menuOpen, setMenuOpen] = useState(false);
 
   // Undo/redo keyboard shortcuts.
   useEffect(() => {
@@ -111,8 +114,7 @@ export default function App() {
   );
 
   const empty = tokens.length === 0;
-
-  const showVision = !empty && (tab === "palette" || tab === "contrast");
+  const closeMenu = () => setMenuOpen(false);
 
   return (
     <NavProvider value={nav}>
@@ -121,16 +123,17 @@ export default function App() {
         <div className="topbar">
           <div className="brand">
             <span className="dot" />
-            Token Studio <small>design system tokens</small>
+            <span className="brand-name">Token Studio</span>
+            {themed.matched >= 3 && (
+              <span
+                className="themed-chip"
+                title={`The UI is themed from ${themed.matched} of your semantic tokens (active mode).`}
+              >
+                ✨
+              </span>
+            )}
           </div>
-          {themed.matched >= 3 && (
-            <span
-              className="themed-chip"
-              title={`The UI is themed from ${themed.matched} of your semantic tokens (active mode). Open the Guide for the contract.`}
-            >
-              ✨ themed
-            </span>
-          )}
+
           {!empty && (
             <nav className="tabs">
               {TABS.map((t) => (
@@ -145,72 +148,73 @@ export default function App() {
               ))}
             </nav>
           )}
-          <div className="spacer" />
-          {!empty && (
-            <div className="seg mode-switch" title="Theme mode">
-              {modeList.length > 1 &&
-                modeList.map((m) => (
+
+          <div className="toolbar">
+            {!empty && modeList.length > 1 && (
+              <div className="seg mode-switch" title="Theme mode">
+                {modeList.map((m) => (
                   <button key={m} className={activeMode === m ? "active" : ""} onClick={() => dispatch({ type: "setMode", name: m })}>
                     {m}
                   </button>
                 ))}
+              </div>
+            )}
+            <button className="btn primary" onClick={() => setExporting(true)} disabled={empty}>
+              Export
+            </button>
+
+            <div className="tb-menu">
               <button
-                aria-label={modeList.length > 1 ? "Add another mode" : "Split into light and dark modes"}
-                onClick={() => dispatch({ type: "addMode" })}
-                title={modeList.length > 1 ? "Add another mode" : "Split into light / dark modes"}
+                className="btn icon-btn"
+                aria-label="More actions"
+                aria-haspopup="menu"
+                aria-expanded={menuOpen}
+                onClick={() => setMenuOpen((o) => !o)}
               >
-                {modeList.length > 1 ? "＋" : "＋ mode"}
+                ⋯
               </button>
-              {modeList.length > 1 && activeMode !== modeList[0] && (
-                <button
-                  aria-label={`Remove the ${activeMode} mode`}
-                  title={`Remove the "${activeMode}" mode`}
-                  onClick={() => dispatch({ type: "removeMode", name: activeMode })}
-                >
-                  ✕
-                </button>
+              {menuOpen && (
+                <>
+                  <div className="tb-menu-backdrop" onClick={closeMenu} />
+                  <div className="tb-menu-panel" role="menu">
+                    <button className="tb-item" onClick={() => { setImporting(true); closeMenu(); }}>Import…</button>
+                    {!empty && <button className="tb-item" onClick={() => { share(); closeMenu(); }}>{shared ? "Link copied ✓" : "Share link"}</button>}
+                    <button className="tb-item" onClick={() => { setDocsOpen(true); closeMenu(); }}>Token guide</button>
+
+                    {!empty && (
+                      <>
+                        <div className="tb-sep" />
+                        <button className="tb-item" disabled={!canUndo} onClick={() => dispatch({ type: "undo" })}>Undo</button>
+                        <button className="tb-item" disabled={!canRedo} onClick={() => dispatch({ type: "redo" })}>Redo</button>
+
+                        <div className="tb-sep" />
+                        <button className="tb-item" onClick={() => { dispatch({ type: "addMode" }); }}>
+                          {modeList.length > 1 ? "Add a mode" : "Split into light / dark"}
+                        </button>
+                        {modeList.length > 1 && activeMode !== modeList[0] && (
+                          <button className="tb-item" onClick={() => dispatch({ type: "removeMode", name: activeMode })}>
+                            Remove “{activeMode}” mode
+                          </button>
+                        )}
+
+                        <div className="tb-sep" />
+                        <div className="tb-label">Simulate vision</div>
+                        {CVD_OPTIONS.map((o) => (
+                          <button
+                            key={o.id}
+                            className={`tb-item ${vision === o.id ? "active" : ""}`}
+                            onClick={() => setVision(o.id)}
+                          >
+                            {o.label}
+                          </button>
+                        ))}
+                      </>
+                    )}
+                  </div>
+                </>
               )}
             </div>
-          )}
-          {!empty && (
-            <div className="seg" title="Undo / redo">
-              <button onClick={() => dispatch({ type: "undo" })} disabled={!canUndo} aria-label="Undo">
-                ↶
-              </button>
-              <button onClick={() => dispatch({ type: "redo" })} disabled={!canRedo} aria-label="Redo">
-                ↷
-              </button>
-            </div>
-          )}
-          {showVision && (
-            <select
-              className="vision-select"
-              value={vision}
-              aria-label="Simulate color-vision deficiency"
-              onChange={(e) => setVision(e.target.value as CvdMode)}
-              title="Simulate color-vision deficiency"
-            >
-              {CVD_OPTIONS.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          )}
-          <button className="btn ghost" onClick={() => setDocsOpen(true)}>
-            Guide
-          </button>
-          <button className="btn" onClick={() => setImporting(true)}>
-            Import
-          </button>
-          {!empty && (
-            <button className="btn" onClick={share}>
-              {shared ? "Link copied ✓" : "Share"}
-            </button>
-          )}
-          <button className="btn primary" onClick={() => setExporting(true)} disabled={empty}>
-            Export
-          </button>
+          </div>
         </div>
 
         {empty ? (
@@ -272,6 +276,14 @@ function Main({
       return (
         <div className="content">
           <DependencyGraph />
+        </div>
+      );
+    case "components":
+      return (
+        <div className="content">
+          <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+            <ComponentsView />
+          </div>
         </div>
       );
     case "spacing":
