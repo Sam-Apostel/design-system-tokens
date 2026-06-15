@@ -23,6 +23,7 @@ export function PaletteView() {
   }
 
   const baseRamps = buildRamps(base);
+  const semanticRamps = buildRamps(semantic);
 
   const Swatch = ({ t }: { t: Token }) => {
     const r = resolve(t, byName);
@@ -42,7 +43,7 @@ export function PaletteView() {
           {sev && <span className={`chip-dot ${sev}`} />}
         </div>
         <div className="meta">
-          <div className="s">{isAlias(t) ? t.name.split("-").slice(1).join("-") || t.name : stepOf(t.name)}</div>
+          <div className="s">{stepOf(t.name)}</div>
           <div className="v" title={rgb ? toHex(rgb) : "?"}>
             {rgb ? toHex(rgb) : "—"}
           </div>
@@ -99,11 +100,16 @@ export function PaletteView() {
             <span className="mono"> --color-brand: var(--colors-blue-500)</span>) to build your upper layer.
           </div>
         ) : (
-          <div className="swatches">
-            {semantic.map((t) => (
-              <Swatch key={t.id} t={t} />
-            ))}
-          </div>
+          semanticRamps.map((ramp) => (
+            <div className="ramp" key={ramp.key}>
+              <h4>{ramp.key}</h4>
+              <div className="swatches">
+                {ramp.tokens.map((t) => (
+                  <Swatch key={t.id} t={t} />
+                ))}
+              </div>
+            </div>
+          ))
         )}
       </div>
     </div>
