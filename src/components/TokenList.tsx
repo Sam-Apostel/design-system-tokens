@@ -23,6 +23,7 @@ export function TokenList({ category, title, onAdd, addLabel }: Props) {
   const { focus, clearFocus } = useNav();
   const [editing, setEditing] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const [pendingName, setPendingName] = useState<string | null>(null);
 
   const issues = useMemo(() => issuesByToken(lint(tokens)), [tokens]);
 
@@ -54,6 +55,34 @@ export function TokenList({ category, title, onAdd, addLabel }: Props) {
     if (el) el.scrollIntoView({ block: "center", behavior: "smooth" });
     clearFocus();
   }, [focus, tokens, category, clearFocus]);
+
+  // After adding a token, reveal it: open its editor and scroll to it.
+  useEffect(() => {
+    if (!pendingName) return;
+    const target = tokens.find((t) => t.name === pendingName);
+    if (!target) return;
+    setEditing(target.id);
+    const el = rowRefs.current.get(target.id);
+    if (el) el.scrollIntoView({ block: "center", behavior: "smooth" });
+    setPendingName(null);
+  }, [pendingName, tokens]);
+
+  const addToken = () => {
+    if (onAdd) {
+      onAdd();
+      return;
+    }
+    // Unique name so repeated adds never silently no-op.
+    const existing = new Set(tokens.map((t) => t.name));
+    const base = `${category ?? "token"}-new`;
+    let name = base;
+    for (let i = 2; existing.has(name); i++) name = `${base}-${i}`;
+    const seed =
+      category === "color" ? "#888888" : category === "spacing" ? "8px" : category === "typography" ? "16px" : "";
+    setQuery(""); // ensure the new token isn't hidden by an active filter
+    dispatch({ type: "add", name, raw: seed });
+    setPendingName(name);
+  };
 
   const renderRow = (t: Token) => {
     const r = resolve(t, indexByNameMemo);
@@ -102,18 +131,7 @@ export function TokenList({ category, title, onAdd, addLabel }: Props) {
         {title}
         <span className="count">({filtered.length})</span>
         <div className="spacer" />
-        <button
-          className="btn small"
-          onClick={() => {
-            if (onAdd) {
-              onAdd();
-              return;
-            }
-            const seed =
-              category === "color" ? "#888888" : category === "spacing" ? "8px" : category === "typography" ? "16px" : "";
-            dispatch({ type: "add", name: `${category ?? "token"}-new`, raw: seed });
-          }}
-        >
+        <button className="btn small" onClick={addToken}>
           {addLabel ?? "+ Add"}
         </button>
       </div>
