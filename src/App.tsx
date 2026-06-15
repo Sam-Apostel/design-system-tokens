@@ -36,7 +36,7 @@ const TABS: { id: Tab; label: string }[] = [
 ];
 
 export default function App() {
-  const { tokens, byName, dispatch, canUndo, canRedo } = useStore();
+  const { tokens, byName, dispatch, canUndo, canRedo, modeList, activeMode } = useStore();
   const [tab, setTab] = useState<Tab>("palette");
   const [focus, setFocus] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
@@ -128,6 +128,30 @@ export default function App() {
             </nav>
           )}
           <div className="spacer" />
+          {!empty && (
+            <div className="seg mode-switch" title="Theme mode">
+              {modeList.length > 1 &&
+                modeList.map((m) => (
+                  <button key={m} className={activeMode === m ? "active" : ""} onClick={() => dispatch({ type: "setMode", name: m })}>
+                    {m}
+                  </button>
+                ))}
+              <button
+                onClick={() => dispatch({ type: "addMode" })}
+                title={modeList.length > 1 ? "Add another mode" : "Split into light / dark modes"}
+              >
+                {modeList.length > 1 ? "＋" : "＋ mode"}
+              </button>
+              {modeList.length > 1 && activeMode !== modeList[0] && (
+                <button
+                  title={`Remove the "${activeMode}" mode`}
+                  onClick={() => dispatch({ type: "removeMode", name: activeMode })}
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          )}
           {!empty && (
             <div className="seg" title="Undo / redo">
               <button onClick={() => dispatch({ type: "undo" })} disabled={!canUndo} aria-label="Undo">

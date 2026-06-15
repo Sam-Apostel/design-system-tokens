@@ -9,7 +9,10 @@ export interface Token {
   id: string;
   /** Name without the leading `--`, e.g. "color-brand-500". */
   name: string;
+  /** The active mode's value. Always mirrors `modes[activeMode]` when modes exist. */
   value: TokenValue;
+  /** Per-mode values (light/dark/…). Absent when there's a single mode. */
+  modes?: Record<string, TokenValue>;
   category: TokenCategory;
   /** Source order, preserved for stable export. */
   order: number;

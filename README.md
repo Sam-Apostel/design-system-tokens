@@ -85,6 +85,22 @@ Figma exports, platform resources — into a single Token Studio-importable
 `:root { … }` block (and optionally W3C JSON), preserving primitive → semantic →
 component aliases. Paste or drop the result into **Import**.
 
+## Themes / modes
+
+Use the **+ mode** control in the toolbar to split the set into **light / dark**
+(and more) modes. Each token keeps a value per mode; switching the active mode
+re-previews every view, and editing a value only affects the active mode. CSS
+export becomes multi-mode automatically — the first mode populates `:root` and
+each other mode becomes a `[data-theme="…"]` block containing only its
+overrides. Other export formats emit the active mode's values.
+
+## Dependency graph
+
+The **Graph** tab lays tokens out by tier and draws links from each alias to the
+token it references, so you can see the primitive → semantic → component flow,
+trace a token's connections on hover, and spot **unused primitives** (nothing
+references them) and **dangling aliases** (missing target).
+
 ## Token & color model
 
 - A token's value is either a **literal** (`raw`) or an **alias** (`ref`) to

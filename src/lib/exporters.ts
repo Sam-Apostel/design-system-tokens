@@ -165,12 +165,42 @@ export function toTailwind(tokens: Token[]): string {
   )};\n`;
 }
 
+/* ----------------------------- multi-mode CSS ----------------------------- */
+
+const modeValue = (t: Token, mode: string): TokenValueLike =>
+  t.modes?.[mode] ?? t.value;
+
+type TokenValueLike = Token["value"];
+
+/** First mode → :root; each other mode → [data-theme="mode"] with only the overrides. */
+export function toCssMultiMode(tokens: Token[], modeList: string[]): string {
+  const ordered = order(tokens);
+  const [first, ...rest] = modeList;
+  const line = (t: Token, mode: string) => `  --${t.name}: ${valueToCss(modeValue(t, mode))};`;
+
+  let out = `:root {\n${ordered.map((t) => line(t, first)).join("\n")}\n}\n`;
+  for (const mode of rest) {
+    const overrides = ordered.filter(
+      (t) => valueToCss(modeValue(t, mode)) !== valueToCss(modeValue(t, first)),
+    );
+    if (overrides.length) {
+      out += `\n[data-theme="${mode}"] {\n${overrides.map((t) => line(t, mode)).join("\n")}\n}\n`;
+    }
+  }
+  return out;
+}
+
 /* ----------------------------- dispatch ----------------------------- */
 
-export function exportTokens(tokens: Token[], format: ExportFormat, css: CssOptions): string {
+export function exportTokens(
+  tokens: Token[],
+  format: ExportFormat,
+  css: CssOptions,
+  modeList: string[] = ["base"],
+): string {
   switch (format) {
     case "css":
-      return toCss(tokens, css);
+      return modeList.length > 1 ? toCssMultiMode(tokens, modeList) : toCss(tokens, css);
     case "json":
       return toJsonW3C(tokens);
     case "scss":

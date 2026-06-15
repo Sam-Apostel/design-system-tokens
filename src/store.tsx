@@ -1,5 +1,5 @@
 import { createContext, useContext, useMemo, useReducer, type ReactNode } from "react";
-import type { Token } from "./types";
+import type { Token, TokenValue } from "./types";
 import { parseValue, indexByName, resolve } from "./lib/value";
 import { tokensFromCss, classifyAll } from "./lib/parseCss";
 import { cssFromHash } from "./lib/permalink";
@@ -11,19 +11,59 @@ type Action =
   | { type: "rename"; id: string; name: string }
   | { type: "renameGroup"; oldPrefix: string; newPrefix: string }
   | { type: "setValue"; id: string; raw: string }
-  | { type: "relink"; id: string; ref: string | null } // null = unlink (keep resolved literal)
+  | { type: "relink"; id: string; ref: string | null }
   | { type: "add"; name: string; raw: string }
   | { type: "remove"; id: string }
+  | { type: "setMode"; name: string }
+  | { type: "addMode" }
+  | { type: "removeMode"; name: string }
   | { type: "undo" }
   | { type: "redo" };
 
 let idc = 0;
 const newId = () => `u${Date.now().toString(36)}${(idc++).toString(36)}`;
 
-/**
- * Apply a mutating action to a token list. Returns the SAME array reference for
- * no-ops so the history layer can skip them.
- */
+/* --------------------------- mode helpers --------------------------- */
+
+const mapRef = (v: TokenValue, fn: (n: string) => string): TokenValue =>
+  v.kind === "ref" ? { ...v, ref: fn(v.ref) } : v;
+
+/** Remap alias targets across a token's value AND every per-mode value. */
+function remapTokenRefs(t: Token, fn: (n: string) => string): Token {
+  const modes = t.modes
+    ? Object.fromEntries(Object.entries(t.modes).map(([m, v]) => [m, mapRef(v, fn)]))
+    : t.modes;
+  return { ...t, value: mapRef(t.value, fn), modes };
+}
+
+/** Keep per-mode maps consistent with the mode list & active value. */
+function syncModes(tokens: Token[], modeList: string[], active: string): Token[] {
+  if (modeList.length <= 1) {
+    return tokens.map((t) => (t.modes ? { ...t, modes: undefined } : t));
+  }
+  return tokens.map((t) => {
+    const modes: Record<string, TokenValue> = { ...(t.modes ?? {}) };
+    for (const m of modeList) {
+      if (m === active) modes[m] = t.value;
+      else if (!(m in modes)) modes[m] = t.value;
+    }
+    for (const k of Object.keys(modes)) if (!modeList.includes(k)) delete modes[k];
+    return { ...t, modes };
+  });
+}
+
+/** Point each token's active value at the given mode. */
+function remapToMode(tokens: Token[], mode: string): Token[] {
+  return tokens.map((t) => (t.modes && t.modes[mode] !== undefined ? { ...t, value: t.modes[mode] } : t));
+}
+
+const NAME_POOL = ["light", "dark", "hc", "print", "brand"];
+function nextModeName(list: string[]): string {
+  return NAME_POOL.find((n) => !list.includes(n)) ?? `mode-${list.length + 1}`;
+}
+
+/* --------------------------- token mutations --------------------------- */
+
 function mutate(tokens: Token[], action: Action): Token[] {
   switch (action.type) {
     case "load":
@@ -35,7 +75,7 @@ function mutate(tokens: Token[], action: Action): Token[] {
       let order = tokens.length;
       for (const t of incoming) {
         const existing = byName.get(t.name);
-        if (existing) byName.set(t.name, { ...existing, value: t.value });
+        if (existing) byName.set(t.name, { ...existing, value: t.value, modes: undefined });
         else byName.set(t.name, { ...t, order: order++ });
       }
       return classifyAll([...byName.values()]);
@@ -51,12 +91,8 @@ function mutate(tokens: Token[], action: Action): Token[] {
       if (!newName || newName === target.name) return tokens;
       const oldName = target.name;
       const next = tokens.map((t) => {
-        let n = t;
-        if (t.id === action.id) n = { ...n, name: newName };
-        if (n.value.kind === "ref" && n.value.ref === oldName) {
-          n = { ...n, value: { ...n.value, ref: newName } };
-        }
-        return n;
+        const renamed = t.id === action.id ? { ...t, name: newName } : t;
+        return remapTokenRefs(renamed, (n) => (n === oldName ? newName : n));
       });
       return classifyAll(next);
     }
@@ -65,16 +101,9 @@ function mutate(tokens: Token[], action: Action): Token[] {
       const oldP = action.oldPrefix;
       const newP = action.newPrefix.trim().replace(/^--/, "").replace(/-+$/, "");
       if (!newP || newP === oldP) return tokens;
-      const remap = (name: string) => {
-        if (name === oldP) return newP;
-        if (name.startsWith(oldP + "-")) return newP + name.slice(oldP.length);
-        return name;
-      };
-      const next = tokens.map((t) => {
-        let n: Token = { ...t, name: remap(t.name) };
-        if (n.value.kind === "ref") n = { ...n, value: { ...n.value, ref: remap(n.value.ref) } };
-        return n;
-      });
+      const remap = (name: string) =>
+        name === oldP ? newP : name.startsWith(oldP + "-") ? newP + name.slice(oldP.length) : name;
+      const next = tokens.map((t) => remapTokenRefs({ ...t, name: remap(t.name) }, remap));
       return classifyAll(next);
     }
 
@@ -117,33 +146,104 @@ function mutate(tokens: Token[], action: Action): Token[] {
   }
 }
 
+/* --------------------------- history reducer --------------------------- */
+
+interface Snap {
+  tokens: Token[];
+  modeList: string[];
+  activeMode: string;
+}
 interface HState {
-  past: Token[][];
-  present: Token[];
-  future: Token[][];
+  past: Snap[];
+  present: Snap;
+  future: Snap[];
+}
+const LIMIT = 100;
+const record = (s: HState, present: Snap): HState => ({
+  past: [...s.past, s.present].slice(-LIMIT),
+  present,
+  future: [],
+});
+
+function addModeSnap(p: Snap): Snap {
+  let { tokens, modeList } = p;
+  let newList: string[];
+  let active: string;
+  if (modeList.length <= 1) {
+    // First extra mode: relabel the single mode "light" and add "dark".
+    newList = ["light", "dark"];
+    active = "light";
+    tokens = tokens.map((t) => ({ ...t, modes: { light: t.value, dark: t.value } }));
+  } else {
+    const name = nextModeName(modeList);
+    newList = [...modeList, name];
+    active = p.activeMode;
+    tokens = tokens.map((t) => ({
+      ...t,
+      modes: { ...(t.modes ?? {}), [name]: t.modes?.[p.activeMode] ?? t.value },
+    }));
+  }
+  tokens = remapToMode(syncModes(tokens, newList, active), active);
+  return { tokens: classifyAll(tokens), modeList: newList, activeMode: active };
 }
 
-const HISTORY_LIMIT = 100;
+function removeModeSnap(p: Snap, name: string): Snap {
+  if (p.modeList.length <= 1) return p;
+  const newList = p.modeList.filter((m) => m !== name);
+  const active = p.activeMode === name ? newList[0] : p.activeMode;
+  let tokens = p.tokens.map((t) => {
+    if (!t.modes) return t;
+    const modes = { ...t.modes };
+    delete modes[name];
+    return { ...t, modes };
+  });
+  if (newList.length <= 1) {
+    tokens = tokens.map((t) => ({
+      ...t,
+      value: t.modes?.[newList[0]] ?? t.value,
+      modes: undefined,
+    }));
+  } else {
+    tokens = remapToMode(syncModes(tokens, newList, active), active);
+  }
+  return { tokens: classifyAll(tokens), modeList: newList, activeMode: active };
+}
 
 function reducer(state: HState, action: Action): HState {
-  if (action.type === "undo") {
-    if (state.past.length === 0) return state;
-    const prev = state.past[state.past.length - 1];
-    return { past: state.past.slice(0, -1), present: prev, future: [state.present, ...state.future] };
+  switch (action.type) {
+    case "undo": {
+      if (!state.past.length) return state;
+      const prev = state.past[state.past.length - 1];
+      return { past: state.past.slice(0, -1), present: prev, future: [state.present, ...state.future] };
+    }
+    case "redo": {
+      if (!state.future.length) return state;
+      const next = state.future[0];
+      return { past: [...state.past, state.present], present: next, future: state.future.slice(1) };
+    }
+    case "setMode": {
+      if (!state.present.modeList.includes(action.name)) return state;
+      const tokens = classifyAll(remapToMode(state.present.tokens, action.name));
+      return { ...state, present: { ...state.present, tokens, activeMode: action.name } };
+    }
+    case "addMode":
+      return record(state, addModeSnap(state.present));
+    case "removeMode":
+      return record(state, removeModeSnap(state.present, action.name));
+    default: {
+      const tokens = mutate(state.present.tokens, action);
+      if (tokens === state.present.tokens) return state; // no-op
+      let { modeList, activeMode } = state.present;
+      if (action.type === "load" || action.type === "clear") {
+        modeList = ["base"];
+        activeMode = "base";
+      }
+      return record(state, { tokens: syncModes(tokens, modeList, activeMode), modeList, activeMode });
+    }
   }
-  if (action.type === "redo") {
-    if (state.future.length === 0) return state;
-    const next = state.future[0];
-    return { past: [...state.past, state.present], present: next, future: state.future.slice(1) };
-  }
-  const next = mutate(state.present, action);
-  if (next === state.present) return state; // no-op, don't record history
-  return {
-    past: [...state.past, state.present].slice(-HISTORY_LIMIT),
-    present: next,
-    future: [],
-  };
 }
+
+/* --------------------------- context --------------------------- */
 
 interface Store {
   tokens: Token[];
@@ -151,23 +251,30 @@ interface Store {
   dispatch: React.Dispatch<Action>;
   canUndo: boolean;
   canRedo: boolean;
+  modeList: string[];
+  activeMode: string;
 }
 
 const Ctx = createContext<Store | null>(null);
 
 export function StoreProvider({ children, initialCss }: { children: ReactNode; initialCss?: string }) {
-  // Seed order: explicit prop (tests) → shared URL hash → empty.
   const [state, dispatch] = useReducer(reducer, undefined, () => {
     const seed = initialCss ?? cssFromHash() ?? undefined;
-    return { past: [], present: seed ? tokensFromCss(seed) : [], future: [] };
+    return {
+      past: [],
+      present: { tokens: seed ? tokensFromCss(seed) : [], modeList: ["base"], activeMode: "base" },
+      future: [],
+    };
   });
   const value = useMemo<Store>(
     () => ({
-      tokens: state.present,
-      byName: indexByName(state.present),
+      tokens: state.present.tokens,
+      byName: indexByName(state.present.tokens),
       dispatch,
       canUndo: state.past.length > 0,
       canRedo: state.future.length > 0,
+      modeList: state.present.modeList,
+      activeMode: state.present.activeMode,
     }),
     [state],
   );

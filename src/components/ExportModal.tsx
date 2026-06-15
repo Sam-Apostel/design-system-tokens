@@ -3,16 +3,17 @@ import { useStore } from "../store";
 import { exportTokens, FORMATS, type ExportFormat } from "../lib/exporters";
 
 export function ExportModal({ onClose }: { onClose: () => void }) {
-  const { tokens } = useStore();
+  const { tokens, modeList } = useStore();
   const [format, setFormat] = useState<ExportFormat>("css");
   const [selector, setSelector] = useState(":root");
   const [grouped, setGrouped] = useState(true);
   const [copied, setCopied] = useState(false);
 
   const meta = FORMATS.find((f) => f.id === format)!;
+  const multiMode = modeList.length > 1;
   const code = useMemo(
-    () => exportTokens(tokens, format, { selector, groupBySection: grouped }),
-    [tokens, format, selector, grouped],
+    () => exportTokens(tokens, format, { selector, groupBySection: grouped }, modeList),
+    [tokens, format, selector, grouped, modeList],
   );
 
   const copy = async () => {
@@ -52,7 +53,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
             ))}
           </div>
 
-          {format === "css" && (
+          {format === "css" && !multiMode && (
             <div style={{ display: "flex", gap: 16, alignItems: "center", marginBottom: 12 }}>
               <div className="field" style={{ flex: "0 0 220px" }}>
                 <label>Selector</label>
@@ -63,6 +64,13 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
                 Group with section comments
               </label>
             </div>
+          )}
+          {multiMode && (
+            <p className="hint" style={{ marginTop: 0 }}>
+              {format === "css"
+                ? `CSS exports all modes: :root holds "${modeList[0]}", others become [data-theme="…"] overrides.`
+                : "This format exports the active mode's values only."}
+            </p>
           )}
 
           <textarea readOnly value={code} spellCheck={false} onFocus={(e) => e.target.select()} />
