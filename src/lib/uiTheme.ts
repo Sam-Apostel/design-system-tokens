@@ -16,8 +16,8 @@ export interface ThemeRole {
 export const THEME_CONTRACT: ThemeRole[] = [
   { cssVar: "--ts-bg", label: "App background", names: ["background", "bg", "color-bg", "color-background"] },
   { cssVar: "--ts-panel", label: "Panels & cards", names: ["surface", "color-surface"] },
-  { cssVar: "--ts-bg-elev", label: "Hover surface", names: ["surface-raised", "surface", "color-surface"] },
-  { cssVar: "--ts-bg-elev-2", label: "Raised surface", names: ["surface-raised", "surface"] },
+  { cssVar: "--ts-bg-elev", label: "Hover surface", names: ["surface-raised"] },
+  { cssVar: "--ts-bg-elev-2", label: "Raised surface", names: ["surface-raised"] },
   { cssVar: "--ts-border", label: "Borders", names: ["border", "color-border"] },
   { cssVar: "--ts-border-soft", label: "Soft borders", names: ["border", "color-border"] },
   { cssVar: "--ts-text", label: "Text", names: ["text", "color-text"] },

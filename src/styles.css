@@ -4,9 +4,12 @@
      defaults. Import tokens named background/surface/text/border/color-primary/
      status… and the UI re-skins itself to match. */
   --bg: var(--ts-bg, #0e0f13);
-  --bg-elev: var(--ts-bg-elev, #16181f);
-  --bg-elev-2: var(--ts-bg-elev-2, #1d212b);
   --panel: var(--ts-panel, #14161c);
+  /* Elevated/hover/active surfaces derive from the themed surface + text, so
+     they adapt even when only background/surface/text tokens are provided.
+     A real surface-raised token overrides the derivation. */
+  --bg-elev: var(--ts-bg-elev, color-mix(in oklab, var(--panel), var(--text) 6%));
+  --bg-elev-2: var(--ts-bg-elev-2, color-mix(in oklab, var(--panel), var(--text) 12%));
   --border: var(--ts-border, #272b36);
   --border-soft: var(--ts-border-soft, #1f232d);
   --text: var(--ts-text, #e6e9f0);
