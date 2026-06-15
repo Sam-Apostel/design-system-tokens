@@ -97,6 +97,14 @@ npm run preview    # preview the production build
 Requires Node 18+ (developed on Node 22). The build output in `dist/` is a static
 site — host it anywhere, or open it from any static file server.
 
+## Deployment
+
+Pushing to `main` auto-builds and publishes to **GitHub Pages** via
+`.github/workflows/deploy.yml`. One-time setup: in the repository **Settings →
+Pages**, set **Source** to **GitHub Actions**. The site is served from a
+sub-path, which works out of the box because Vite is configured with
+`base: "./"` (relative asset URLs).
+
 ## Tech
 
 React 18 + TypeScript + Vite. No runtime dependencies beyond React; all token
