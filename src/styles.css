@@ -1454,13 +1454,20 @@ input[type="color"] {
   }
   .vision-select { flex: 1 1 auto; min-width: 0; }
 
-  /* Stack the split layout; let the page scroll instead of each column. */
+  /* Stack the split layout with flex (grid auto-rows can overlap inside a
+     fixed-height flex parent on iOS Safari). */
   .content.split {
-    grid-template-columns: 1fr;
+    display: flex;
+    flex-direction: column;
     overflow: auto;
     gap: 16px;
   }
-  .content.split .col { overflow: visible; min-height: 0; }
+  .content.split .col {
+    overflow: visible;
+    min-height: 0;
+    width: 100%;
+    flex: 0 0 auto;
+  }
   .content { padding: 14px; }
 
   /* Collapse multi-column grids. */
