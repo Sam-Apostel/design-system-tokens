@@ -1124,3 +1124,130 @@ input[type="color"] {
   right: 10px;
   z-index: 2;
 }
+
+/* ---------- Tier overview ---------- */
+.tier-overview {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin-bottom: 8px;
+}
+.tier-col {
+  position: relative;
+  background: var(--panel);
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  padding: 14px;
+}
+.tier-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.tier-name {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.tier-count {
+  font-family: var(--mono);
+  font-size: 18px;
+  color: var(--accent);
+}
+.tier-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.tier-arrow {
+  position: absolute;
+  right: -11px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-faint);
+  font-size: 16px;
+  z-index: 1;
+}
+.mini-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  margin-right: 5px;
+  display: inline-block;
+  vertical-align: -1px;
+}
+
+/* ---------- Coverage ---------- */
+.cov-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 8px;
+}
+.cov-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--bg);
+}
+.cov-item.missing {
+  border-style: dashed;
+  border-color: rgba(255, 180, 84, 0.35);
+}
+.cov-status {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.cov-item.present .cov-status {
+  background: rgba(74, 222, 128, 0.16);
+  color: var(--success);
+}
+.cov-item.missing .cov-status {
+  background: rgba(255, 180, 84, 0.16);
+  color: var(--warning);
+}
+.cov-body {
+  flex: 1;
+  min-width: 0;
+}
+.cov-key {
+  font-size: 12.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cov-desc {
+  font-size: 11px;
+}
+
+/* ---------- Create preview ---------- */
+.create-preview {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-soft);
+}
+
+/* ---------- Docs ---------- */
+.docs h4 {
+  margin: 18px 0 6px;
+  font-size: 14px;
+}
+.docs p {
+  line-height: 1.6;
+  color: var(--text-dim);
+  margin: 6px 0;
+}
+.docs .code-block {
+  margin: 8px 0;
+}

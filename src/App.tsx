@@ -13,11 +13,16 @@ import { ImportModal } from "./components/ImportModal";
 import { ExportModal } from "./components/ExportModal";
 import { EmptyState } from "./components/EmptyState";
 import { TypeStyleModal } from "./components/TypeStyleModal";
+import { SemanticsView } from "./components/SemanticsView";
+import { CreateTokenModal } from "./components/CreateTokenModal";
+import { DocsModal } from "./components/DocsModal";
+import type { RecItem } from "./lib/recommendations";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "palette", label: "Palette" },
   { id: "colorspace", label: "Color space" },
   { id: "contrast", label: "Contrast" },
+  { id: "semantics", label: "Semantics" },
   { id: "spacing", label: "Spacing" },
   { id: "typography", label: "Typography" },
   { id: "checks", label: "Checks" },
@@ -38,6 +43,8 @@ export default function App() {
   const [importing, setImporting] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [newTypeStyle, setNewTypeStyle] = useState(false);
+  const [docsOpen, setDocsOpen] = useState(false);
+  const [createItem, setCreateItem] = useState<RecItem | null>(null);
 
   const navigate = useCallback((t: Tab, token?: string) => {
     setTab(t);
@@ -90,6 +97,9 @@ export default function App() {
             </nav>
           )}
           <div className="spacer" />
+          <button className="btn ghost" onClick={() => setDocsOpen(true)}>
+            Guide
+          </button>
           <button className="btn" onClick={() => setImporting(true)}>
             Import CSS
           </button>
@@ -101,18 +111,42 @@ export default function App() {
         {empty ? (
           <EmptyState onImport={() => setImporting(true)} />
         ) : (
-          <Main tab={tab} onNewTypeStyle={() => setNewTypeStyle(true)} />
+          <Main
+            tab={tab}
+            onNewTypeStyle={() => setNewTypeStyle(true)}
+            onCreate={setCreateItem}
+            onOpenDocs={() => setDocsOpen(true)}
+          />
         )}
 
         {importing && <ImportModal onClose={() => setImporting(false)} />}
         {exporting && <ExportModal onClose={() => setExporting(false)} />}
         {newTypeStyle && <TypeStyleModal onClose={() => setNewTypeStyle(false)} />}
+        {docsOpen && <DocsModal onClose={() => setDocsOpen(false)} />}
+        {createItem && (
+          <CreateTokenModal
+            initialName={createItem.key}
+            kind={createItem.kind}
+            desc={createItem.desc}
+            onClose={() => setCreateItem(null)}
+          />
+        )}
       </div>
     </NavProvider>
   );
 }
 
-function Main({ tab, onNewTypeStyle }: { tab: Tab; onNewTypeStyle: () => void }) {
+function Main({
+  tab,
+  onNewTypeStyle,
+  onCreate,
+  onOpenDocs,
+}: {
+  tab: Tab;
+  onNewTypeStyle: () => void;
+  onCreate: (item: RecItem) => void;
+  onOpenDocs: () => void;
+}) {
   switch (tab) {
     case "palette":
       return <Split left={<TokenList category="color" title="Color tokens" />}><PaletteView /></Split>;
@@ -120,6 +154,14 @@ function Main({ tab, onNewTypeStyle }: { tab: Tab; onNewTypeStyle: () => void })
       return <Split left={<TokenList category="color" title="Color tokens" />}><ColorSpaceView /></Split>;
     case "contrast":
       return <Split left={<TokenList category="color" title="Color tokens" />}><ContrastView /></Split>;
+    case "semantics":
+      return (
+        <div className="content">
+          <div style={{ maxWidth: 960, margin: "0 auto" }}>
+            <SemanticsView onCreate={onCreate} onOpenDocs={onOpenDocs} />
+          </div>
+        </div>
+      );
     case "spacing":
       return <Split left={<TokenList category="spacing" title="Spacing tokens" />}><SpacingView /></Split>;
     case "typography":

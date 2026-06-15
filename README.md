@@ -54,6 +54,27 @@ The **Checks** tab continuously validates the token set:
 | `duplicate/identical-value` | info | Multiple tokens sharing the exact same literal value |
 | `duplicate/near-color` | warning | Colors that are perceptually near-identical (OKLab distance) |
 
+## Token tiers (primitive → semantic → component)
+
+Token Studio models the layered approach most design systems use, surfaced in the
+**Semantics** tab and the in-app **Guide**:
+
+1. **Primitive** — raw, context-free values: color ramps and the spacing scale
+   (`colors-blue-500`, `space-4`, `radius-2`). Brand ramps that alias base ramps
+   (`brand-500`) still read as primitives.
+2. **Semantic** — meaning-based tokens that alias primitives (`surface`,
+   `surface-raised`, `text`, `text-muted`, `border`, `primary`). Product code
+   should consume these, never raw primitives.
+3. **Component** — component-scoped tokens that reference semantics
+   (`card-bg`, `card-radius`, `control-height`, `button-bg`).
+
+The **Semantics** tab classifies your tokens into these tiers, scores your
+coverage against a curated catalog of recommended semantic & component tokens,
+and flags what's missing. Each missing token has a **Create** action that opens a
+guided form to alias one of your existing primitives. Tiers are inferred from
+token names and value shape (`src/lib/tiers.ts`); the catalog lives in
+`src/lib/recommendations.ts`.
+
 ## Token & color model
 
 - A token's value is either a **literal** (`raw`) or an **alias** (`ref`) to

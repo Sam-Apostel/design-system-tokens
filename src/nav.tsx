@@ -4,6 +4,7 @@ export type Tab =
   | "palette"
   | "colorspace"
   | "contrast"
+  | "semantics"
   | "spacing"
   | "typography"
   | "checks"
