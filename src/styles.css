@@ -1363,3 +1363,8 @@ input[type="color"] {
   outline: none;
   border-color: var(--accent);
 }
+
+.fix-btn {
+  width: 100%;
+  margin-top: 8px;
+}

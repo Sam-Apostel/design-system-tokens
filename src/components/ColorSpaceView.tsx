@@ -6,6 +6,8 @@ import {
   toCssDisplay,
   toHex,
   toSpacePoint,
+  rgbToOklab,
+  oklabToRgb,
   type ColorSpace,
   type SpacePoint,
   type RGB,
@@ -85,6 +87,19 @@ function computeBounds(items: PlotItem[], mode: PlotMode, fit: boolean): Bounds 
   return { minX: minX - padX, maxX: maxX + padX, minY: minY - padY, maxY: maxY + padY };
 }
 
+/** Follow an alias chain to the token holding the literal value. */
+function terminalToken(token: Token, byName: Map<string, Token>): Token {
+  let cur = token;
+  const seen = new Set([cur.name]);
+  while (cur.value.kind === "ref") {
+    const next = byName.get(cur.value.ref);
+    if (!next || seen.has(next.name)) break;
+    seen.add(next.name);
+    cur = next;
+  }
+  return cur;
+}
+
 function project(pt: SpacePoint, mode: PlotMode, b: Bounds): { px: number; py: number } {
   const c = dataCoord(pt, mode);
   const px = PAD + ((c.x - b.minX) / (b.maxX - b.minX || 1)) * INNER;
@@ -93,7 +108,7 @@ function project(pt: SpacePoint, mode: PlotMode, b: Bounds): { px: number; py: n
 }
 
 export function ColorSpaceView() {
-  const { tokens, byName } = useStore();
+  const { tokens, byName, dispatch } = useStore();
   const [space, setSpace] = useState<ColorSpace>("oklab");
   const [mode, setMode] = useState<PlotMode>("ab");
   const [showLinks, setShowLinks] = useState(true);
@@ -146,6 +161,24 @@ export function ColorSpaceView() {
     return set;
   }, [scales]);
 
+  const totalUneven = useMemo(
+    () => scales.reduce((a, s) => a + s.profile.filter((p) => p.flagged).length, 0),
+    [scales],
+  );
+
+  // Snap flagged steps onto the even-lightness line, keeping each step's hue &
+  // chroma (OKLab a/b). Edits the terminal raw token so aliases stay intact.
+  const fixSteps = (group: PlotItem[], profile: LightnessStep[]) => {
+    profile.forEach((p, i) => {
+      if (!p.flagged) return;
+      const ok = rgbToOklab(group[i].rgb);
+      const fixed = oklabToRgb(p.ideal, ok.a, ok.b);
+      const target = terminalToken(group[i].token, byName);
+      dispatch({ type: "setValue", id: target.id, raw: toHex({ ...fixed, a: 1 }) });
+    });
+  };
+  const fixAll = () => scales.forEach((s) => fixSteps(s.group, s.profile));
+
   const axis = AXIS_LABELS[mode][space];
 
   return (
@@ -174,6 +207,11 @@ export function ColorSpaceView() {
           <input type="checkbox" checked={showLinks} onChange={(e) => setShowLinks(e.target.checked)} />
           Connect ramps
         </label>
+        {totalUneven > 0 && (
+          <button className="btn small" onClick={fixAll} title="Snap every flagged step onto its even-lightness ideal">
+            Fix all {totalUneven} uneven
+          </button>
+        )}
       </div>
 
       {items.length === 0 ? (
@@ -222,6 +260,18 @@ export function ColorSpaceView() {
                     >
                       <Plot title={key} items={group} mode={mode} showLinks={showLinks} axis={axis} fit={fit} metrics={metrics} flagged={flagged} uneven={uneven} />
                       <LightnessProfile steps={profile} items={group} />
+                      {uneven > 0 && (
+                        <button
+                          className="btn small fix-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            fixSteps(group, profile);
+                          }}
+                          title="Snap flagged steps onto the even-lightness line"
+                        >
+                          Snap {uneven} to even L
+                        </button>
+                      )}
                     </div>
                   );
                 })}
