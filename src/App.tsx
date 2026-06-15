@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useStore } from "./store";
 import { NavProvider, type Tab } from "./nav";
+import { VisionProvider } from "./vision";
+import { CVD_OPTIONS, type CvdMode } from "./lib/cvd";
 import { lint } from "./lib/lint";
 import { tabForIssue } from "./lib/issueNav";
 import { shareUrl } from "./lib/permalink";
@@ -41,6 +43,7 @@ export default function App() {
   const [docsOpen, setDocsOpen] = useState(false);
   const [createItem, setCreateItem] = useState<RecItem | null>(null);
   const [shared, setShared] = useState(false);
+  const [vision, setVision] = useState<CvdMode>("none");
 
   // Undo/redo keyboard shortcuts.
   useEffect(() => {
@@ -97,8 +100,11 @@ export default function App() {
 
   const empty = tokens.length === 0;
 
+  const showVision = !empty && (tab === "palette" || tab === "contrast");
+
   return (
     <NavProvider value={nav}>
+     <VisionProvider value={vision}>
       <div className="app">
         <div className="topbar">
           <div className="brand">
@@ -129,6 +135,20 @@ export default function App() {
                 ↷
               </button>
             </div>
+          )}
+          {showVision && (
+            <select
+              className="vision-select"
+              value={vision}
+              onChange={(e) => setVision(e.target.value as CvdMode)}
+              title="Simulate color-vision deficiency"
+            >
+              {CVD_OPTIONS.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
           )}
           <button className="btn ghost" onClick={() => setDocsOpen(true)}>
             Guide
@@ -170,6 +190,7 @@ export default function App() {
           />
         )}
       </div>
+     </VisionProvider>
     </NavProvider>
   );
 }

@@ -3,6 +3,8 @@ import { useStore } from "../store";
 import { resolve } from "../lib/value";
 import { parseColor, toCssDisplay, contrastRatio, rateContrast, type RGB } from "../lib/color";
 import { semanticPairings } from "../lib/contrastAudit";
+import { useVision } from "../vision";
+import { simulateCvd } from "../lib/cvd";
 
 interface ColorEntry {
   name: string;
@@ -16,6 +18,8 @@ interface ColorEntry {
 export function ContrastView() {
   const { tokens, byName } = useStore();
   const [metric, setMetric] = useState<"wcag" | "apca">("wcag");
+  const vision = useVision();
+  const sim = (c: RGB) => toCssDisplay(simulateCvd(c, vision));
 
   const semantic = useMemo(() => semanticPairings(tokens, byName), [tokens, byName]);
   const sortedPairs = useMemo(
@@ -77,7 +81,7 @@ export function ContrastView() {
               const status = ok ? "pass" : okLarge ? "large" : "fail";
               return (
                 <div className={`pairing ${status}`} key={`${p.text.name}|${p.surface.name}`}>
-                  <span className="pairing-chip" style={{ background: toCssDisplay(p.surface.rgb), color: toCssDisplay(p.text.rgb) }}>
+                  <span className="pairing-chip" style={{ background: sim(p.surface.rgb), color: sim(p.text.rgb) }}>
                     Ag
                   </span>
                   <div className="pairing-meta">
@@ -128,8 +132,8 @@ export function ContrastView() {
                       <div
                         className={`contrast-cell ${rating.aaaNormal ? "pass-aaa" : ""}`}
                         style={{
-                          background: toCssDisplay(bg.rgb),
-                          color: toCssDisplay(fg.rgb),
+                          background: sim(bg.rgb),
+                          color: sim(fg.rgb),
                           opacity: rating.aaLargeOrAaaNormal ? 1 : 0.55,
                         }}
                         title={`--${fg.name} on --${bg.name}: ${ratio.toFixed(2)} — ${rating.label}`}

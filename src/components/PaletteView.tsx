@@ -1,6 +1,8 @@
 import { useMemo } from "react";
 import { useStore } from "../store";
 import { useNav } from "../nav";
+import { useVision } from "../vision";
+import { simulateCvd } from "../lib/cvd";
 import { resolve } from "../lib/value";
 import { parseColor, toCssDisplay, toHex, rgbToOklab } from "../lib/color";
 import { buildRamps, stepOf } from "../lib/groups";
@@ -11,6 +13,7 @@ import type { Token } from "../types";
 export function PaletteView() {
   const { tokens, byName } = useStore();
   const { navigate } = useNav();
+  const vision = useVision();
 
   const colors = tokens.filter((t) => t.category === "color");
   const base = colors.filter((t) => !isAlias(t));
@@ -37,7 +40,7 @@ export function PaletteView() {
         title={`--${t.name}${isUnused ? " · not used by any semantic token" : ""}`}
         onClick={() => navigate("colorspace", t.name)}
       >
-        <div className="chip" style={{ background: rgb ? toCssDisplay(rgb) : "#000" }}>
+        <div className="chip" style={{ background: rgb ? toCssDisplay(simulateCvd(rgb, vision)) : "#000" }}>
           {isAlias(t) && <span className="alias">alias</span>}
           {isUnused && <span className="unused-tag">unused</span>}
           {sev && <span className={`chip-dot ${sev}`} />}

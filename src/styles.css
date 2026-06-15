@@ -1350,3 +1350,16 @@ input[type="color"] {
 .pairing-tag.fail {
   color: var(--danger);
 }
+
+.vision-select {
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 12px;
+}
+.vision-select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
