@@ -25,7 +25,11 @@ export const FORMATS: FormatMeta[] = [
 export interface CssOptions {
   selector: string;
   groupBySection: boolean;
+  /** When light/dark modes exist, emit light-dark() instead of a [data-theme] block. */
+  lightDark?: boolean;
 }
+
+const hasLightDark = (modeList: string[]) => modeList.includes("light") && modeList.includes("dark");
 
 export function toCss(tokens: Token[], opts: CssOptions): string {
   const ordered = order(tokens);
@@ -205,6 +209,20 @@ export function toCssMultiMode(tokens: Token[], modeList: string[]): string {
   return out;
 }
 
+/** Light/dark via the CSS light-dark() function in a single :root block. */
+export function toCssLightDark(tokens: Token[]): string {
+  const ordered = order(tokens);
+  const lv = (t: Token) => t.modes?.light ?? t.value;
+  const dv = (t: Token) => t.modes?.dark ?? t.value;
+  const lines = ordered.map((t) => {
+    const l = valueToCss(lv(t));
+    const d = valueToCss(dv(t));
+    if (t.category === "color" && l !== d) return `  --${t.name}: light-dark(${l}, ${d});`;
+    return `  --${t.name}: ${l};`;
+  });
+  return `:root {\n  color-scheme: light dark;\n${lines.join("\n")}\n}\n`;
+}
+
 /* ----------------------------- dispatch ----------------------------- */
 
 export function exportTokens(
@@ -215,6 +233,7 @@ export function exportTokens(
 ): string {
   switch (format) {
     case "css":
+      if (css.lightDark && hasLightDark(modeList)) return toCssLightDark(tokens);
       return modeList.length > 1 ? toCssMultiMode(tokens, modeList) : toCss(tokens, css);
     case "json":
       return toJsonW3C(tokens);

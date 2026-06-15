@@ -136,12 +136,38 @@ function parseFunc(input: string): RGB | null {
   return null;
 }
 
+/** Split on top-level commas, ignoring commas nested inside parentheses. */
+export function splitTopLevelCommas(inner: string): string[] {
+  const out: string[] = [];
+  let depth = 0;
+  let cur = "";
+  for (const ch of inner) {
+    if (ch === "(") depth++;
+    else if (ch === ")") depth--;
+    if (ch === "," && depth === 0) {
+      out.push(cur);
+      cur = "";
+    } else cur += ch;
+  }
+  if (cur.trim() !== "") out.push(cur);
+  return out;
+}
+
 /** Parse any supported CSS color string into sRGB, or null if not a color. */
 export function parseColor(input: string): RGB | null {
   if (!input) return null;
   const v = input.trim().toLowerCase();
   if (v in NAMED) return parseHex(NAMED[v]);
   if (v.startsWith("#")) return parseHex(v);
+  if (v.startsWith("light-dark(")) {
+    // Render the light (first) argument; per-mode display is handled upstream.
+    const m = v.match(/^light-dark\(([\s\S]*)\)$/);
+    if (m) {
+      const parts = splitTopLevelCommas(m[1]);
+      if (parts.length) return parseColor(parts[0].trim());
+    }
+    return null;
+  }
   if (/^[a-z]+\(/.test(v)) return parseFunc(v);
   return null;
 }

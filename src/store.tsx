@@ -3,6 +3,7 @@ import type { Token, TokenValue } from "./types";
 import { parseValue, indexByName, resolve } from "./lib/value";
 import { tokensFromCss, classifyAll } from "./lib/parseCss";
 import { cssFromHash } from "./lib/permalink";
+import { expandLightDark } from "./lib/lightdark";
 
 type Action =
   | { type: "load"; css: string }
@@ -209,6 +210,28 @@ function removeModeSnap(p: Snap, name: string): Snap {
   return { tokens: classifyAll(tokens), modeList: newList, activeMode: active };
 }
 
+function mergeSnap(p: Snap, css: string): Snap {
+  const inc = expandLightDark(tokensFromCss(css, p.tokens.length));
+  const multi = p.modeList.length > 1 || inc.modeList.length > 1;
+  const modeList = multi ? ["light", "dark"] : ["base"];
+  const active = multi ? (modeList.includes(p.activeMode) ? p.activeMode : "light") : "base";
+  const ensure = (toks: Token[]) =>
+    multi
+      ? toks.map((t) => (t.modes && t.modes.light !== undefined ? t : { ...t, modes: { light: t.value, dark: t.value } }))
+      : toks.map((t) => (t.modes ? { ...t, modes: undefined } : t));
+
+  const byName = new Map(ensure(p.tokens).map((t) => [t.name, t]));
+  let order = byName.size;
+  for (const t of ensure(inc.tokens)) {
+    const ex = byName.get(t.name);
+    if (ex) byName.set(t.name, { ...ex, value: t.value, modes: t.modes });
+    else byName.set(t.name, { ...t, order: order++ });
+  }
+  let tokens = classifyAll([...byName.values()]);
+  tokens = syncModes(remapToMode(tokens, active), modeList, active);
+  return { tokens, modeList, activeMode: active };
+}
+
 function reducer(state: HState, action: Action): HState {
   switch (action.type) {
     case "undo": {
@@ -230,11 +253,16 @@ function reducer(state: HState, action: Action): HState {
       return record(state, addModeSnap(state.present));
     case "removeMode":
       return record(state, removeModeSnap(state.present, action.name));
+    case "load":
+      // Expand light-dark() values into light/dark modes when present.
+      return record(state, expandLightDark(tokensFromCss(action.css)));
+    case "merge":
+      return record(state, mergeSnap(state.present, action.css));
     default: {
       const tokens = mutate(state.present.tokens, action);
       if (tokens === state.present.tokens) return state; // no-op
       let { modeList, activeMode } = state.present;
-      if (action.type === "load" || action.type === "clear") {
+      if (action.type === "clear") {
         modeList = ["base"];
         activeMode = "base";
       }
@@ -260,11 +288,10 @@ const Ctx = createContext<Store | null>(null);
 export function StoreProvider({ children, initialCss }: { children: ReactNode; initialCss?: string }) {
   const [state, dispatch] = useReducer(reducer, undefined, () => {
     const seed = initialCss ?? cssFromHash() ?? undefined;
-    return {
-      past: [],
-      present: { tokens: seed ? tokensFromCss(seed) : [], modeList: ["base"], activeMode: "base" },
-      future: [],
-    };
+    const present = seed
+      ? expandLightDark(tokensFromCss(seed))
+      : { tokens: [], modeList: ["base"], activeMode: "base" };
+    return { past: [], present, future: [] };
   });
   const value = useMemo<Store>(
     () => ({

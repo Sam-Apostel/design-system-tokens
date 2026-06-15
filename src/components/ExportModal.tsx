@@ -7,13 +7,15 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
   const [format, setFormat] = useState<ExportFormat>("css");
   const [selector, setSelector] = useState(":root");
   const [grouped, setGrouped] = useState(true);
+  const [lightDark, setLightDark] = useState(true);
   const [copied, setCopied] = useState(false);
 
   const meta = FORMATS.find((f) => f.id === format)!;
   const multiMode = modeList.length > 1;
+  const canLightDark = modeList.includes("light") && modeList.includes("dark");
   const code = useMemo(
-    () => exportTokens(tokens, format, { selector, groupBySection: grouped }, modeList),
-    [tokens, format, selector, grouped, modeList],
+    () => exportTokens(tokens, format, { selector, groupBySection: grouped, lightDark }, modeList),
+    [tokens, format, selector, grouped, lightDark, modeList],
   );
 
   const copy = async () => {
@@ -65,11 +67,18 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
               </label>
             </div>
           )}
-          {multiMode && (
+          {format === "css" && canLightDark && (
+            <label className="toggle" style={{ marginBottom: 12 }}>
+              <input type="checkbox" checked={lightDark} onChange={(e) => setLightDark(e.target.checked)} />
+              Use <span className="mono">&nbsp;light-dark()</span>&nbsp; (single :root, follows color-scheme)
+            </label>
+          )}
+          {multiMode && format !== "css" && (
+            <p className="hint" style={{ marginTop: 0 }}>This format exports the active mode's values only.</p>
+          )}
+          {format === "css" && multiMode && !(canLightDark && lightDark) && (
             <p className="hint" style={{ marginTop: 0 }}>
-              {format === "css"
-                ? `CSS exports all modes: :root holds "${modeList[0]}", others become [data-theme="…"] overrides.`
-                : "This format exports the active mode's values only."}
+              :root holds "{modeList[0]}"; other modes become [data-theme="…"] overrides.
             </p>
           )}
 
