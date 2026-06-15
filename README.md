@@ -75,6 +75,16 @@ guided form to alias one of your existing primitives. Tiers are inferred from
 token names and value shape (`src/lib/tiers.ts`); the catalog lives in
 `src/lib/recommendations.ts`.
 
+## Extracting tokens from an existing codebase
+
+A reusable agent skill lives at
+[`.claude/skills/extract-design-tokens/SKILL.md`](.claude/skills/extract-design-tokens/SKILL.md).
+Point Claude Code (or any LLM/agent that reads skill files) at a project and it
+will pull design values — CSS/SCSS variables, Tailwind config, theme objects,
+Figma exports, platform resources — into a single Token Studio-importable
+`:root { … }` block (and optionally W3C JSON), preserving primitive → semantic →
+component aliases. Paste or drop the result into **Import**.
+
 ## Token & color model
 
 - A token's value is either a **literal** (`raw`) or an **alias** (`ref`) to
