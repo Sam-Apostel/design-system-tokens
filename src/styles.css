@@ -1,19 +1,23 @@
 :root {
-  --bg: #0e0f13;
-  --bg-elev: #16181f;
-  --bg-elev-2: #1d212b;
-  --panel: #14161c;
-  --border: #272b36;
-  --border-soft: #1f232d;
-  --text: #e6e9f0;
-  --text-dim: #9aa3b2;
-  --text-faint: #6b7280;
-  --accent: #5b9dff;
-  --accent-dim: #2b4a7a;
-  --danger: #ff6b6b;
-  --warning: #ffb454;
-  --success: #4ade80;
-  --info: #67c2ff;
+  /* The app's own palette. Each value reads a "Token Studio theming contract"
+     variable (--ts-*) injected from imported tokens, falling back to the dark
+     defaults. Import tokens named background/surface/text/border/color-primary/
+     status… and the UI re-skins itself to match. */
+  --bg: var(--ts-bg, #0e0f13);
+  --bg-elev: var(--ts-bg-elev, #16181f);
+  --bg-elev-2: var(--ts-bg-elev-2, #1d212b);
+  --panel: var(--ts-panel, #14161c);
+  --border: var(--ts-border, #272b36);
+  --border-soft: var(--ts-border-soft, #1f232d);
+  --text: var(--ts-text, #e6e9f0);
+  --text-dim: var(--ts-text-dim, #9aa3b2);
+  --text-faint: var(--ts-text-faint, #6b7280);
+  --accent: var(--ts-accent, #5b9dff);
+  --accent-dim: color-mix(in oklab, var(--accent), var(--bg) 58%);
+  --danger: var(--ts-danger, #ff6b6b);
+  --warning: var(--ts-warning, #ffb454);
+  --success: var(--ts-success, #4ade80);
+  --info: var(--ts-info, #67c2ff);
   --radius: 8px;
   --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   --sans: "Inter", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
@@ -1529,4 +1533,15 @@ input[type="color"] {
   .seg button,
   .chip-btn { min-height: 34px; }
   .group-label { padding: 6px 6px; }
+}
+
+/* "UI themed from your tokens" indicator. */
+.themed-chip {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 20px;
+  border: 1px solid var(--accent-dim);
+  color: var(--accent);
+  background: color-mix(in oklab, var(--accent), transparent 86%);
+  white-space: nowrap;
 }

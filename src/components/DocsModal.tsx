@@ -62,6 +62,24 @@ export function DocsModal({ onClose }: { onClose: () => void }) {
             The <b>Semantics</b> tab shows your current coverage and lets you create these tokens by
             aliasing the primitives your designer already provided.
           </p>
+
+          <h4>Theme Token Studio with your own tokens</h4>
+          <p>
+            Token Studio reads a small <b>theming contract</b> — if your set defines these semantic color
+            tokens, the app's UI re-skins itself to match (and toggling light/dark re-skins it live). It's
+            the same app, dogfooding the same tokens.
+          </p>
+          <pre className="code-block">{`--background      → app background
+--surface        → panels & cards
+--surface-raised → raised / hover surfaces
+--text           → text        --text-muted → muted text
+--text-subtle    → subtle text --border     → borders
+--color-primary  → accent      (or: primary / brand)
+--success  --warning  --danger  --info → status colors`}</pre>
+          <p className="hint">
+            Aliases count too — these usually point at your primitives. Build the recommended semantic
+            layer and you get the theming for free.
+          </p>
         </div>
         <footer>
           <button className="btn primary" onClick={onClose}>Got it</button>

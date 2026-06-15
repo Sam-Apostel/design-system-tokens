@@ -6,6 +6,7 @@ import { CVD_OPTIONS, type CvdMode } from "./lib/cvd";
 import { lint } from "./lib/lint";
 import { tabForIssue } from "./lib/issueNav";
 import { shareUrl } from "./lib/permalink";
+import { uiThemeVars, THEME_VARS } from "./lib/uiTheme";
 import { TokenList } from "./components/TokenList";
 import { PaletteView } from "./components/PaletteView";
 import { SpacingView } from "./components/SpacingView";
@@ -63,6 +64,15 @@ export default function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, [dispatch]);
 
+  // Dogfood the theming contract: re-skin the app from imported tokens.
+  const themed = useMemo(() => uiThemeVars(tokens, byName), [tokens, byName]);
+  useEffect(() => {
+    const root = document.documentElement;
+    for (const v of THEME_VARS) root.style.removeProperty(v);
+    for (const [k, val] of Object.entries(themed.vars)) root.style.setProperty(k, val);
+    root.style.colorScheme = themed.matched > 0 ? (themed.bgIsLight ? "light" : "dark") : "dark";
+  }, [themed]);
+
   const share = async () => {
     const url = shareUrl(tokens);
     window.history.replaceState(null, "", url);
@@ -113,6 +123,14 @@ export default function App() {
             <span className="dot" />
             Token Studio <small>design system tokens</small>
           </div>
+          {themed.matched >= 3 && (
+            <span
+              className="themed-chip"
+              title={`The UI is themed from ${themed.matched} of your semantic tokens (active mode). Open the Guide for the contract.`}
+            >
+              ✨ themed
+            </span>
+          )}
           {!empty && (
             <nav className="tabs">
               {TABS.map((t) => (
