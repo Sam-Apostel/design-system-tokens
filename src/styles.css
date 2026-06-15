@@ -1251,3 +1251,19 @@ input[type="color"] {
 .docs .code-block {
   margin: 8px 0;
 }
+
+/* ---------- Lightness profile ---------- */
+.ramp-profile {
+  margin-top: 8px;
+}
+.ramp-profile .plot-svg {
+  height: 84px;
+  background: var(--panel);
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+}
+.ramp-profile-cap {
+  text-align: center;
+  font-size: 10px;
+  margin-top: 3px;
+}

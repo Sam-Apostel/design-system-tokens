@@ -47,3 +47,40 @@ function circularRange(deg: number[]): number {
   maxGap = Math.max(maxGap, rad[0] + 2 * Math.PI - rad[rad.length - 1]);
   return ((2 * Math.PI - maxGap) * 180) / Math.PI;
 }
+
+export interface LightnessStep {
+  /** Measured OKLab lightness (0..1). */
+  L: number;
+  /** Lightness this step would have on a perfectly even ramp. */
+  ideal: number;
+  /** L − ideal; sign shows whether the step is too light/dark for its position. */
+  residual: number;
+  /** True when the step deviates enough to call out. */
+  flagged: boolean;
+}
+
+/**
+ * Lightness across a ramp (in ramp order) versus an evenly-distributed ideal
+ * line from the first to the last step. Steps whose residual exceeds a
+ * range-relative tolerance — or that reverse direction — are flagged.
+ */
+export function lightnessProfile(colors: RGB[]): LightnessStep[] {
+  const Ls = colors.map((c) => rgbToOklab(c).L);
+  const n = Ls.length;
+  if (n === 0) return [];
+  const first = Ls[0];
+  const last = Ls[n - 1];
+  const span = last - first;
+  const tol = Math.max(0.02, Math.abs(span) * 0.12);
+
+  return Ls.map((L, i) => {
+    const ideal = n > 1 ? first + (span * i) / (n - 1) : L;
+    const residual = L - ideal;
+    // Reversal: this step moves opposite to the overall ramp direction.
+    const reversal =
+      i > 0 && Math.abs(span) > 1e-6 && Math.sign(L - Ls[i - 1]) === -Math.sign(span);
+    const flagged = n >= 3 && (Math.abs(residual) > tol || reversal);
+    return { L, ideal, residual, flagged };
+  });
+}
+

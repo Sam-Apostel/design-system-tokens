@@ -11,7 +11,7 @@ import {
   type RGB,
 } from "../lib/color";
 import { buildRamps } from "../lib/groups";
-import { rampMetrics, type RampMetrics } from "../lib/rampMetrics";
+import { rampMetrics, lightnessProfile, type RampMetrics, type LightnessStep } from "../lib/rampMetrics";
 import type { Token } from "../types";
 
 type PlotMode = "ab" | "LC" | "LH";
@@ -123,16 +123,28 @@ export function ColorSpaceView() {
     return out;
   }, [tokens, byName, space]);
 
-  // Real scales only (≥2 distinct colors), each with quality metrics, sorted
-  // worst-first so the most uneven ramps surface at the top.
+  // Real scales only (≥2 distinct colors), each with quality metrics + a
+  // per-step lightness profile, sorted worst-first.
   const scales = useMemo(() => {
     const m = new Map<string, PlotItem[]>();
     for (const it of items) (m.get(it.ramp) ?? m.set(it.ramp, []).get(it.ramp)!).push(it);
     return [...m.entries()]
       .filter(([, g]) => new Set(g.map((i) => i.hex)).size >= 2)
-      .map(([key, group]) => ({ key, group, metrics: rampMetrics(group.map((i) => i.rgb)) }))
+      .map(([key, group]) => ({
+        key,
+        group,
+        metrics: rampMetrics(group.map((i) => i.rgb)),
+        profile: lightnessProfile(group.map((i) => i.rgb)),
+      }))
       .sort((a, b) => b.metrics.unevenness - a.metrics.unevenness);
   }, [items]);
+
+  // Names of steps that deviate from an even lightness ramp — ringed in plots.
+  const flagged = useMemo(() => {
+    const set = new Set<string>();
+    for (const s of scales) s.profile.forEach((p, i) => p.flagged && set.add(s.group[i].token.name));
+    return set;
+  }, [scales]);
 
   const axis = AXIS_LABELS[mode][space];
 
@@ -178,6 +190,7 @@ export function ColorSpaceView() {
               fit={fit}
               emphasize={emphasize}
               onHoverRamp={setHoverRamp}
+              flagged={flagged}
               big
             />
           </div>
@@ -197,17 +210,21 @@ export function ColorSpaceView() {
                 )}
               </div>
               <div className="plot-grid">
-                {scales.map(({ key, group, metrics }) => (
-                  <div
-                    key={key}
-                    className={`plot-cell ${focusRamp === key ? "focused" : ""}`}
-                    onClick={() => setFocusRamp((cur) => (cur === key ? null : key))}
-                    onMouseEnter={() => setHoverRamp(key)}
-                    onMouseLeave={() => setHoverRamp((h) => (h === key ? null : h))}
-                  >
-                    <Plot title={key} items={group} mode={mode} showLinks={showLinks} axis={axis} fit={fit} metrics={metrics} />
-                  </div>
-                ))}
+                {scales.map(({ key, group, metrics, profile }) => {
+                  const uneven = profile.filter((p) => p.flagged).length;
+                  return (
+                    <div
+                      key={key}
+                      className={`plot-cell ${focusRamp === key ? "focused" : ""}`}
+                      onClick={() => setFocusRamp((cur) => (cur === key ? null : key))}
+                      onMouseEnter={() => setHoverRamp(key)}
+                      onMouseLeave={() => setHoverRamp((h) => (h === key ? null : h))}
+                    >
+                      <Plot title={key} items={group} mode={mode} showLinks={showLinks} axis={axis} fit={fit} metrics={metrics} flagged={flagged} uneven={uneven} />
+                      <LightnessProfile steps={profile} items={group} />
+                    </div>
+                  );
+                })}
               </div>
             </>
           )}
@@ -216,9 +233,11 @@ export function ColorSpaceView() {
             <div className="section-title">How to read this</div>
             <p className="hint" style={{ marginTop: 0 }}>
               Each dot is a color token, filled with its real color and positioned by the selected color
-              space. With <b>Fit to data</b> on, each plot zooms to its own colors so ramps fill the frame;
-              turn it off to compare every plot on the full color-space scale. Connected lines trace each
-              ramp so uneven hue/lightness steps stand out.
+              space. With <b>Fit to data</b> on, each plot zooms to its own colors so ramps fill the frame.
+              Dots <span style={{ color: "var(--warning)" }}>ringed amber</span> are steps whose lightness
+              deviates from an even ramp. Each scale's <b>lightness profile</b> plots L against the dashed
+              ideal line — dots off that line are inconsistent; a kink that reverses direction is a
+              non-monotonic step.
             </p>
           </div>
         </>
@@ -238,6 +257,8 @@ function Plot({
   metrics,
   emphasize,
   onHoverRamp,
+  flagged,
+  uneven,
 }: {
   title: string;
   items: PlotItem[];
@@ -249,6 +270,8 @@ function Plot({
   metrics?: RampMetrics;
   emphasize?: string | null;
   onHoverRamp?: (ramp: string | null) => void;
+  flagged?: Set<string>;
+  uneven?: number;
 }) {
   const bounds = useMemo(() => computeBounds(items, mode, fit), [items, mode, fit]);
 
@@ -358,6 +381,9 @@ function Plot({
         {items.map((it) => {
           const { px, py } = project(it.pt, mode, bounds);
           const dim = emphasize != null && it.ramp !== emphasize;
+          const isFlagged = flagged?.has(it.token.name);
+          const stroke = isFlagged ? "var(--warning)" : emphasize === it.ramp ? "#fff" : "rgba(0,0,0,0.55)";
+          const sw = isFlagged ? 2.5 : emphasize === it.ramp ? 1.5 : 1;
           return (
             <circle
               key={it.token.id}
@@ -365,14 +391,14 @@ function Plot({
               cy={py}
               r={big ? (emphasize === it.ramp ? 8 : 7) : 6}
               fill={it.css}
-              stroke={emphasize === it.ramp ? "#fff" : "rgba(0,0,0,0.5)"}
-              strokeWidth={emphasize === it.ramp ? 1.5 : 1}
+              stroke={stroke}
+              strokeWidth={sw}
               opacity={dim ? 0.12 : 1}
               style={onHoverRamp ? { cursor: "pointer" } : undefined}
               onMouseEnter={onHoverRamp ? () => onHoverRamp(it.ramp) : undefined}
               onMouseLeave={onHoverRamp ? () => onHoverRamp(null) : undefined}
             >
-              <title>{`--${it.token.name}\n${it.hex}`}</title>
+              <title>{`--${it.token.name}\n${it.hex}${isFlagged ? "\n⚠ uneven lightness step" : ""}`}</title>
             </circle>
           );
         })}
@@ -386,9 +412,71 @@ function Plot({
           <span className={metrics.hueDrift > 25 ? "warn" : ""}>
             {metrics.hueDrift < 1 ? "hue steady" : `hue ±${Math.round(metrics.hueDrift)}°`}
           </span>
+          {uneven != null && uneven > 0 && <span className="warn">{uneven} uneven</span>}
         </div>
       )}
     </figure>
+  );
+}
+
+/**
+ * Lightness across a ramp vs an even ideal line. A straight diagonal of dots on
+ * the line = evenly distributed; dots off the line (ringed amber) are the
+ * inconsistent steps.
+ */
+function LightnessProfile({ steps, items }: { steps: LightnessStep[]; items: PlotItem[] }) {
+  if (steps.length < 2) return null;
+  const W = 240;
+  const H = 84;
+  const padX = 8;
+  const padY = 10;
+  const n = steps.length;
+
+  const allL = steps.flatMap((s) => [s.L, s.ideal]);
+  let lo = Math.min(...allL);
+  let hi = Math.max(...allL);
+  if (hi - lo < 1e-6) { lo -= 0.05; hi += 0.05; }
+  const x = (i: number) => padX + (i / (n - 1)) * (W - padX * 2);
+  const y = (L: number) => padY + (1 - (L - lo) / (hi - lo)) * (H - padY * 2);
+
+  return (
+    <div className="ramp-profile">
+      <svg viewBox={`0 0 ${W} ${H}`} className="plot-svg" preserveAspectRatio="none">
+        {/* ideal even-distribution line */}
+        <line
+          x1={x(0)}
+          y1={y(steps[0].ideal)}
+          x2={x(n - 1)}
+          y2={y(steps[n - 1].ideal)}
+          stroke="var(--text-faint)"
+          strokeDasharray="3 3"
+          strokeWidth={1}
+        />
+        {/* actual lightness path */}
+        <polyline
+          points={steps.map((s, i) => `${x(i)},${y(s.L)}`).join(" ")}
+          fill="none"
+          stroke="rgba(255,255,255,0.25)"
+          strokeWidth={1.5}
+        />
+        {steps.map((s, i) => (
+          <circle
+            key={i}
+            cx={x(i)}
+            cy={y(s.L)}
+            r={s.flagged ? 5 : 3.5}
+            fill={items[i]?.css ?? "#000"}
+            stroke={s.flagged ? "var(--warning)" : "rgba(0,0,0,0.5)"}
+            strokeWidth={s.flagged ? 2 : 1}
+          >
+            <title>{`--${items[i]?.token.name}\nL ${Math.round(s.L * 100)} (ideal ${Math.round(
+              s.ideal * 100,
+            )}, off ${s.residual >= 0 ? "+" : ""}${Math.round(s.residual * 100)})`}</title>
+          </circle>
+        ))}
+      </svg>
+      <div className="ramp-profile-cap mono faint">lightness vs even ramp</div>
+    </div>
   );
 }
 
