@@ -1,14 +1,8 @@
 import { useMemo } from "react";
 import { useStore } from "../store";
-import { useNav, type Tab } from "../nav";
-import { lint, summarize, DEFAULT_LINT_CONFIG } from "../lib/lint";
-
-const TAB_FOR_CATEGORY: Record<string, Tab> = {
-  color: "palette",
-  spacing: "spacing",
-  typography: "typography",
-  other: "tokens",
-};
+import { useNav } from "../nav";
+import { lint, summarize, DEFAULT_LINT_CONFIG, type LintIssue } from "../lib/lint";
+import { tabForIssue } from "../lib/issueNav";
 
 export function LintView() {
   const { tokens, byName } = useStore();
@@ -16,12 +10,9 @@ export function LintView() {
   const issues = useMemo(() => lint(tokens, DEFAULT_LINT_CONFIG), [tokens]);
   const counts = summarize(issues);
 
-  const targetFor = (tokenNames: string[]): { tab: Tab; token: string } | null => {
-    const name = tokenNames[0];
-    if (!name) return null;
-    const t = byName.get(name);
-    const tab = TAB_FOR_CATEGORY[t?.category ?? "other"] ?? "tokens";
-    return { tab, token: name };
+  const targetFor = (i: LintIssue) => {
+    if (!i.tokens[0]) return null;
+    return { tab: tabForIssue(i, byName), token: i.tokens[0] };
   };
 
   return (
@@ -38,7 +29,7 @@ export function LintView() {
         <div className="empty">✓ No issues found. Tidy token set!</div>
       ) : (
         issues.map((i) => {
-          const target = targetFor(i.tokens);
+          const target = targetFor(i);
           return (
             <div
               className={`issue ${target ? "clickable" : ""}`}
@@ -68,6 +59,7 @@ export function LintView() {
           <li><span className="mono">assignment/prefer-alias</span> — semantic tokens reference primitives.</li>
           <li><span className="mono">duplicate/identical-value</span> — flags shared literals.</li>
           <li><span className="mono">duplicate/near-color</span> — flags perceptually near-identical colors.</li>
+          <li><span className="mono">contrast/insufficient</span> — text-on-surface pairs below WCAG AA (4.5:1).</li>
         </ul>
       </div>
     </div>

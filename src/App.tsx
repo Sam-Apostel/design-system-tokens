@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useStore } from "./store";
 import { NavProvider, type Tab } from "./nav";
 import { lint } from "./lib/lint";
+import { tabForIssue } from "./lib/issueNav";
 import { shareUrl } from "./lib/permalink";
 import { TokenList } from "./components/TokenList";
 import { PaletteView } from "./components/PaletteView";
@@ -29,13 +30,6 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "checks", label: "Checks" },
   { id: "tokens", label: "All tokens" },
 ];
-
-const TAB_FOR_CATEGORY: Record<string, Tab> = {
-  color: "palette",
-  spacing: "spacing",
-  typography: "typography",
-  other: "tokens",
-};
 
 export default function App() {
   const { tokens, byName, dispatch, canUndo, canRedo } = useStore();
@@ -89,8 +83,7 @@ export default function App() {
     for (const i of lint(tokens)) {
       if (i.severity === "info") continue;
       total++;
-      const cat = byName.get(i.tokens[0])?.category ?? "other";
-      const t = TAB_FOR_CATEGORY[cat] ?? "tokens";
+      const t = tabForIssue(i, byName);
       counts[t] = (counts[t] ?? 0) + 1;
     }
     counts.checks = total;

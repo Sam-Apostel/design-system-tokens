@@ -1,6 +1,7 @@
 import type { Token } from "../types";
 import { resolve, indexByName } from "./value";
 import { isColor, parseColor, colorDistance, toHex } from "./color";
+import { auditableFailures } from "./contrastAudit";
 
 export type LintSeverity = "error" | "warning" | "info";
 
@@ -171,6 +172,16 @@ export function lint(tokens: Token[], config: LintConfig = DEFAULT_LINT_CONFIG):
         });
       }
     }
+  }
+
+  // --- Semantic contrast (text on surface) ---------------------------------
+  for (const p of auditableFailures(tokens, byName)) {
+    push({
+      severity: p.wcag < 3 ? "error" : "warning",
+      rule: "contrast/insufficient",
+      message: `"${p.text.name}" on "${p.surface.name}" has ${p.wcag.toFixed(2)}:1 contrast (WCAG AA needs 4.5:1 for normal text).`,
+      tokens: [p.text.name, p.surface.name],
+    });
   }
 
   return issues;

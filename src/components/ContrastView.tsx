@@ -1,7 +1,8 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useStore } from "../store";
 import { resolve } from "../lib/value";
 import { parseColor, toCssDisplay, contrastRatio, rateContrast, type RGB } from "../lib/color";
+import { semanticPairings } from "../lib/contrastAudit";
 
 interface ColorEntry {
   name: string;
@@ -14,6 +15,13 @@ interface ColorEntry {
  */
 export function ContrastView() {
   const { tokens, byName } = useStore();
+  const [metric, setMetric] = useState<"wcag" | "apca">("wcag");
+
+  const semantic = useMemo(() => semanticPairings(tokens, byName), [tokens, byName]);
+  const sortedPairs = useMemo(
+    () => [...semantic.pairs].sort((a, b) => a.wcag - b.wcag),
+    [semantic],
+  );
 
   const colors = useMemo<ColorEntry[]>(() => {
     const out: ColorEntry[] = [];
@@ -43,6 +51,52 @@ export function ContrastView() {
 
   return (
     <div>
+      {/* Semantic pairings: text tokens on surface tokens */}
+      {semantic.pairs.length > 0 && (
+        <div className="card">
+          <div className="section-title">
+            Semantic pairings
+            <span className="count">({semantic.texts.length} text × {semantic.surfaces.length} surface)</span>
+            <div className="spacer" />
+            <div className="seg">
+              <button className={metric === "wcag" ? "active" : ""} onClick={() => setMetric("wcag")}>WCAG</button>
+              <button className={metric === "apca" ? "active" : ""} onClick={() => setMetric("apca")}>APCA</button>
+            </div>
+          </div>
+          <p className="hint" style={{ marginTop: 0 }}>
+            Every <b>text</b> token measured on every <b>surface</b> token, worst-first.{" "}
+            {metric === "wcag"
+              ? "WCAG AA needs 4.5:1 for normal text, 3:1 for large."
+              : "APCA Lc ≥ 60 suits body text, ≥ 45 large text (sign shows polarity)."}
+          </p>
+          <div className="pairing-grid">
+            {sortedPairs.map((p) => {
+              const ok = metric === "wcag" ? p.wcag >= 4.5 : Math.abs(p.apca) >= 60;
+              const okLarge = metric === "wcag" ? p.wcag >= 3 : Math.abs(p.apca) >= 45;
+              const score = metric === "wcag" ? `${p.wcag.toFixed(2)}:1` : `Lc ${Math.round(p.apca)}`;
+              const status = ok ? "pass" : okLarge ? "large" : "fail";
+              return (
+                <div className={`pairing ${status}`} key={`${p.text.name}|${p.surface.name}`}>
+                  <span className="pairing-chip" style={{ background: toCssDisplay(p.surface.rgb), color: toCssDisplay(p.text.rgb) }}>
+                    Ag
+                  </span>
+                  <div className="pairing-meta">
+                    <div className="mono pairing-names">
+                      <span>--{p.text.name}</span>
+                      <span className="faint"> on </span>
+                      <span>--{p.surface.name}</span>
+                    </div>
+                    <div className="mono pairing-score">
+                      {score} · <span className={`pairing-tag ${status}`}>{status === "pass" ? "OK" : status === "large" ? "large only" : "fail"}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       <div className="section-title">
         Contrast matrix <span className="count">(WCAG 2.1)</span>
       </div>
