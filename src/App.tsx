@@ -289,9 +289,15 @@ function Main({
 }
 
 function Split({ left, children }: { left: React.ReactNode; children: React.ReactNode }) {
+  // The per-tab token list is hidden on mobile by default (the All tokens tab
+  // covers editing); a toggle reveals it. Desktop always shows both columns.
+  const [showList, setShowList] = useState(false);
   return (
-    <div className="content split">
-      <div className="col">{left}</div>
+    <div className={`content split ${showList ? "show-list" : ""}`}>
+      <button className="btn small split-toggle" onClick={() => setShowList((s) => !s)}>
+        {showList ? "Hide token list" : "Edit token list"}
+      </button>
+      <div className="col list-col">{left}</div>
       <div className="col">{children}</div>
     </div>
   );

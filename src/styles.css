@@ -175,6 +175,10 @@ select {
   overflow: auto;
   min-height: 0;
 }
+/* Mobile-only control; hidden on desktop where both columns always show. */
+.split-toggle {
+  display: none;
+}
 
 /* ---------- Section / cards ---------- */
 
@@ -1469,6 +1473,15 @@ input[type="color"] {
     flex: 0 0 auto;
   }
   .content { padding: 14px; }
+
+  /* Per-tab token list collapsed by default on mobile; toggle to reveal. */
+  .split-toggle {
+    display: inline-flex;
+    align-self: flex-start;
+    order: -1;
+  }
+  .content.split .list-col { display: none; }
+  .content.split.show-list .list-col { display: block; }
 
   /* Collapse multi-column grids. */
   .tier-overview { grid-template-columns: 1fr; }
