@@ -188,3 +188,17 @@ export function summarize(issues: LintIssue[]) {
     info: issues.filter((i) => i.severity === "info").length,
   };
 }
+
+const SEV_RANK: Record<LintSeverity, number> = { info: 0, warning: 1, error: 2 };
+
+/** Highest-severity issue per token name, for inline indicators across views. */
+export function issuesByToken(issues: LintIssue[]): Map<string, LintSeverity> {
+  const map = new Map<string, LintSeverity>();
+  for (const i of issues) {
+    for (const name of i.tokens) {
+      const cur = map.get(name);
+      if (!cur || SEV_RANK[i.severity] > SEV_RANK[cur]) map.set(name, i.severity);
+    }
+  }
+  return map;
+}

@@ -2,7 +2,6 @@ import { createContext, useContext, useMemo, useReducer, type ReactNode } from "
 import type { Token } from "./types";
 import { parseValue, indexByName, resolve } from "./lib/value";
 import { tokensFromCss, classifyAll } from "./lib/parseCss";
-import { SAMPLE_CSS } from "./lib/sample";
 
 interface State {
   tokens: Token[];
@@ -13,6 +12,7 @@ type Action =
   | { type: "merge"; css: string }
   | { type: "clear" }
   | { type: "rename"; id: string; name: string }
+  | { type: "renameGroup"; oldPrefix: string; newPrefix: string }
   | { type: "setValue"; id: string; raw: string }
   | { type: "relink"; id: string; ref: string | null } // null = unlink (keep resolved literal)
   | { type: "add"; name: string; raw: string }
@@ -53,6 +53,25 @@ function reducer(state: State, action: Action): State {
         // Re-point any aliases that referenced the old name so links survive.
         if (next.value.kind === "ref" && next.value.ref === oldName) {
           next = { ...next, value: { ...next.value, ref: newName } };
+        }
+        return next;
+      });
+      return { tokens: classifyAll(tokens) };
+    }
+
+    case "renameGroup": {
+      const oldP = action.oldPrefix;
+      const newP = action.newPrefix.trim().replace(/^--/, "").replace(/-+$/, "");
+      if (!newP || newP === oldP) return state;
+      const remap = (name: string) => {
+        if (name === oldP) return newP;
+        if (name.startsWith(oldP + "-")) return newP + name.slice(oldP.length);
+        return name;
+      };
+      const tokens = state.tokens.map((t) => {
+        let next: Token = { ...t, name: remap(t.name) };
+        if (next.value.kind === "ref") {
+          next = { ...next, value: { ...next.value, ref: remap(next.value.ref) } };
         }
         return next;
       });
@@ -109,9 +128,11 @@ interface Store {
 
 const Ctx = createContext<Store | null>(null);
 
-export function StoreProvider({ children }: { children: ReactNode }) {
+export function StoreProvider({ children, initialCss }: { children: ReactNode; initialCss?: string }) {
+  // Start empty — the user imports (or loads the example) to populate.
+  // `initialCss` is an optional seed (handy for tests / embedding).
   const [state, dispatch] = useReducer(reducer, undefined, () => ({
-    tokens: tokensFromCss(SAMPLE_CSS),
+    tokens: initialCss ? tokensFromCss(initialCss) : ([] as Token[]),
   }));
   const value = useMemo<Store>(
     () => ({ tokens: state.tokens, byName: indexByName(state.tokens), dispatch }),
