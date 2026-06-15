@@ -1288,3 +1288,8 @@ input[type="color"] {
   background: var(--bg-elev);
   color: var(--text);
 }
+
+.seg button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}

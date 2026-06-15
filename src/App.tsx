@@ -1,7 +1,8 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useStore } from "./store";
 import { NavProvider, type Tab } from "./nav";
 import { lint } from "./lib/lint";
+import { shareUrl } from "./lib/permalink";
 import { TokenList } from "./components/TokenList";
 import { PaletteView } from "./components/PaletteView";
 import { SpacingView } from "./components/SpacingView";
@@ -37,7 +38,7 @@ const TAB_FOR_CATEGORY: Record<string, Tab> = {
 };
 
 export default function App() {
-  const { tokens, byName } = useStore();
+  const { tokens, byName, dispatch, canUndo, canRedo } = useStore();
   const [tab, setTab] = useState<Tab>("palette");
   const [focus, setFocus] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
@@ -45,6 +46,35 @@ export default function App() {
   const [newTypeStyle, setNewTypeStyle] = useState(false);
   const [docsOpen, setDocsOpen] = useState(false);
   const [createItem, setCreateItem] = useState<RecItem | null>(null);
+  const [shared, setShared] = useState(false);
+
+  // Undo/redo keyboard shortcuts.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      if (e.key.toLowerCase() === "z") {
+        e.preventDefault();
+        dispatch({ type: e.shiftKey ? "redo" : "undo" });
+      } else if (e.key.toLowerCase() === "y") {
+        e.preventDefault();
+        dispatch({ type: "redo" });
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [dispatch]);
+
+  const share = async () => {
+    const url = shareUrl(tokens);
+    window.history.replaceState(null, "", url);
+    try {
+      await navigator.clipboard.writeText(url);
+      setShared(true);
+      setTimeout(() => setShared(false), 1600);
+    } catch {
+      /* hash is set even if clipboard is blocked */
+    }
+  };
 
   const navigate = useCallback((t: Tab, token?: string) => {
     setTab(t);
@@ -97,14 +127,29 @@ export default function App() {
             </nav>
           )}
           <div className="spacer" />
+          {!empty && (
+            <div className="seg" title="Undo / redo">
+              <button onClick={() => dispatch({ type: "undo" })} disabled={!canUndo} aria-label="Undo">
+                ↶
+              </button>
+              <button onClick={() => dispatch({ type: "redo" })} disabled={!canRedo} aria-label="Redo">
+                ↷
+              </button>
+            </div>
+          )}
           <button className="btn ghost" onClick={() => setDocsOpen(true)}>
             Guide
           </button>
           <button className="btn" onClick={() => setImporting(true)}>
-            Import CSS
+            Import
           </button>
+          {!empty && (
+            <button className="btn" onClick={share}>
+              {shared ? "Link copied ✓" : "Share"}
+            </button>
+          )}
           <button className="btn primary" onClick={() => setExporting(true)} disabled={empty}>
-            Export CSS
+            Export
           </button>
         </div>
 
