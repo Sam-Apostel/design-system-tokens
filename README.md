@@ -101,6 +101,18 @@ token it references, so you can see the primitive → semantic → component flo
 trace a token's connections on hover, and spot **unused primitives** (nothing
 references them) and **dangling aliases** (missing target).
 
+## Self-theming (the app uses your tokens)
+
+Token Studio reads a small **theming contract** and re-skins its own UI from
+imported tokens. Define semantic color tokens named `background`, `surface`,
+`surface-raised`, `text`, `text-muted`, `text-subtle`, `border`,
+`color-primary` (or `primary`/`brand`), and `success`/`warning`/`danger`/`info`
+and the interface adopts them — including light themes (it sets `color-scheme`
+from the background's luminance) and live light/dark switching when the set uses
+`light-dark()`. The app's CSS reads `--ts-*` contract variables (see
+`src/lib/uiTheme.ts`) with the dark defaults as fallback, so nothing changes
+until matching tokens are present.
+
 ## Token & color model
 
 - A token's value is either a **literal** (`raw`) or an **alias** (`ref`) to

@@ -84,6 +84,21 @@ Rules for the output:
    - **Component**: component-scoped → `card-bg`, `control-radius`,
      `button-text`. Alias to semantics/primitives.
 
+   Prefer these **Token Studio theming-contract** names for the semantic color
+   layer where they fit — the app re-skins its own UI from them, and they're the
+   conventional names anyway:
+
+   ```
+   --background      --surface        --surface-raised   --surface-sunken
+   --text            --text-muted     --text-subtle      --text-inverse
+   --border          --border-strong  --focus-ring
+   --color-primary  (or --primary)    --accent           --link
+   --success  --warning  --danger  --info
+   ```
+
+   If the source already uses different names, keep them but add these as
+   aliases when the intent matches (e.g. `--surface: var(--bg-card);`).
+
 4. **Resolve references into aliases.** When a Tailwind/theme value is
    `colors.blue[500]` or a SCSS var reuses another var, emit `var(--…)`. When two
    tokens resolve to the same literal and one is clearly semantic, alias the
@@ -115,7 +130,9 @@ If asked, also emit W3C Design Tokens JSON (nest by name segments, `$type` +
 Tell the user they can paste the CSS (or JSON) into **Token Studio →
 Import** (https://tokens.sams.land), or drop the saved `.css`/`.json` file onto
 the import dialog, to visualize palette/spacing/typography, check contrast,
-audit ramp consistency, and re-export.
+audit ramp consistency, and re-export. If the semantic layer uses the
+theming-contract names above, Token Studio's own UI will adopt the imported
+palette (and follow light/dark if you used `light-dark()`).
 
 ## Quality checks before finishing
 

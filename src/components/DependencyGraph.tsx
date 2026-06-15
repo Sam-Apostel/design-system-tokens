@@ -102,7 +102,7 @@ export function DependencyGraph() {
                 key={i}
                 d={`M ${s.x} ${s.y} C ${s.x + cx} ${s.y} ${t.x - cx} ${t.y} ${t.x} ${t.y}`}
                 fill="none"
-                stroke={dim ? "rgba(255,255,255,0.05)" : active ? "var(--accent)" : "rgba(255,255,255,0.16)"}
+                stroke={dim ? "var(--plot-line-dim)" : active ? "var(--accent)" : "var(--plot-line)"}
                 strokeWidth={1.4}
               />
             );
@@ -126,7 +126,7 @@ export function DependencyGraph() {
                   rx={7}
                   className={`graph-rect ${n.dangling ? "dangling" : ""} ${n.tier === "primitive" && n.incoming === 0 ? "unused" : ""}`}
                 />
-                {n.swatch && <rect x={8} y={ROW_H / 2 - 7} width={14} height={14} rx={3} fill={n.swatch} stroke="rgba(0,0,0,.4)" />}
+                {n.swatch && <rect x={8} y={ROW_H / 2 - 7} width={14} height={14} rx={3} fill={n.swatch} stroke="var(--hairline)" />}
                 <text x={n.swatch ? 28 : 10} y={ROW_H / 2 + 4} className="graph-text">
                   {clip(n.token.name, n.swatch ? 20 : 23)}
                 </text>

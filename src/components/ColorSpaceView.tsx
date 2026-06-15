@@ -423,7 +423,7 @@ function Plot({
               key={i}
               points={pts.map((p) => `${p.px},${p.py}`).join(" ")}
               fill="none"
-              stroke={dim ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.25)"}
+              stroke={dim ? "var(--plot-line-dim)" : "var(--plot-line)"}
               strokeWidth={emphasize === ramp ? 2.5 : 1.5}
             />
           );
@@ -432,7 +432,7 @@ function Plot({
           const { px, py } = project(it.pt, mode, bounds);
           const dim = emphasize != null && it.ramp !== emphasize;
           const isFlagged = flagged?.has(it.token.name);
-          const stroke = isFlagged ? "var(--warning)" : emphasize === it.ramp ? "#fff" : "rgba(0,0,0,0.55)";
+          const stroke = isFlagged ? "var(--warning)" : emphasize === it.ramp ? "var(--plot-ring)" : "var(--hairline)";
           const sw = isFlagged ? 2.5 : emphasize === it.ramp ? 1.5 : 1;
           return (
             <circle
@@ -506,7 +506,7 @@ function LightnessProfile({ steps, items }: { steps: LightnessStep[]; items: Plo
         <polyline
           points={steps.map((s, i) => `${x(i)},${y(s.L)}`).join(" ")}
           fill="none"
-          stroke="rgba(255,255,255,0.25)"
+          stroke="var(--plot-line)"
           strokeWidth={1.5}
         />
         {steps.map((s, i) => (
@@ -516,7 +516,7 @@ function LightnessProfile({ steps, items }: { steps: LightnessStep[]; items: Plo
             cy={y(s.L)}
             r={s.flagged ? 5 : 3.5}
             fill={items[i]?.css ?? "#000"}
-            stroke={s.flagged ? "var(--warning)" : "rgba(0,0,0,0.5)"}
+            stroke={s.flagged ? "var(--warning)" : "var(--hairline)"}
             strokeWidth={s.flagged ? 2 : 1}
           >
             <title>{`--${items[i]?.token.name}\nL ${Math.round(s.L * 100)} (ideal ${Math.round(

@@ -30,7 +30,7 @@ export const THEME_CONTRACT: ThemeRole[] = [
   { cssVar: "--ts-info", label: "Info", names: ["info", "color-info"] },
 ];
 
-export const THEME_VARS = THEME_CONTRACT.map((r) => r.cssVar);
+export const THEME_VARS = [...THEME_CONTRACT.map((r) => r.cssVar), "--ts-on-accent"];
 
 export interface UiTheme {
   vars: Record<string, string>;
@@ -65,6 +65,10 @@ export function uiThemeVars(tokens: Token[], byName: Map<string, Token>): UiThem
       }
     }
   }
+
+  // Readable text/icon color to sit on the accent (e.g. primary buttons).
+  const accent = vars["--ts-accent"] ? parseColor(vars["--ts-accent"]) : null;
+  if (accent) vars["--ts-on-accent"] = relativeLuminance(accent) > 0.55 ? "#06122a" : "#ffffff";
 
   let bgIsLight = false;
   const bg = vars["--ts-bg"] ? parseColor(vars["--ts-bg"]) : null;
