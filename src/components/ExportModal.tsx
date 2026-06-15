@@ -1,21 +1,23 @@
 import { useMemo, useState } from "react";
 import { useStore } from "../store";
-import { toCss } from "../lib/serialize";
+import { exportTokens, FORMATS, type ExportFormat } from "../lib/exporters";
 
 export function ExportModal({ onClose }: { onClose: () => void }) {
   const { tokens } = useStore();
+  const [format, setFormat] = useState<ExportFormat>("css");
   const [selector, setSelector] = useState(":root");
   const [grouped, setGrouped] = useState(true);
   const [copied, setCopied] = useState(false);
 
-  const css = useMemo(
-    () => toCss(tokens, { selector, groupBySection: grouped }),
-    [tokens, selector, grouped],
+  const meta = FORMATS.find((f) => f.id === format)!;
+  const code = useMemo(
+    () => exportTokens(tokens, format, { selector, groupBySection: grouped }),
+    [tokens, format, selector, grouped],
   );
 
   const copy = async () => {
     try {
-      await navigator.clipboard.writeText(css);
+      await navigator.clipboard.writeText(code);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
@@ -24,11 +26,11 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
   };
 
   const download = () => {
-    const blob = new Blob([css], { type: "text/css" });
+    const blob = new Blob([code], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "tokens.css";
+    a.download = meta.filename;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -37,35 +39,38 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <header>
-          <h3>Export CSS</h3>
+          <h3>Export tokens</h3>
           <div className="spacer" />
-          <button className="btn ghost small" onClick={onClose}>
-            ✕
-          </button>
+          <button className="btn ghost small" onClick={onClose}>✕</button>
         </header>
         <div className="body">
-          <div style={{ display: "flex", gap: 16, alignItems: "center", marginBottom: 12 }}>
-            <div className="field" style={{ flex: "0 0 220px" }}>
-              <label>Selector</label>
-              <input value={selector} onChange={(e) => setSelector(e.target.value)} spellCheck={false} />
-            </div>
-            <label className="toggle" style={{ marginTop: 18 }}>
-              <input type="checkbox" checked={grouped} onChange={(e) => setGrouped(e.target.checked)} />
-              Group with section comments
-            </label>
+          <div className="seg" style={{ marginBottom: 12, flexWrap: "wrap" }}>
+            {FORMATS.map((f) => (
+              <button key={f.id} className={format === f.id ? "active" : ""} onClick={() => setFormat(f.id)}>
+                {f.label}
+              </button>
+            ))}
           </div>
-          <textarea readOnly value={css} spellCheck={false} onFocus={(e) => e.target.select()} />
+
+          {format === "css" && (
+            <div style={{ display: "flex", gap: 16, alignItems: "center", marginBottom: 12 }}>
+              <div className="field" style={{ flex: "0 0 220px" }}>
+                <label>Selector</label>
+                <input className="text-input" value={selector} onChange={(e) => setSelector(e.target.value)} spellCheck={false} />
+              </div>
+              <label className="toggle" style={{ marginTop: 18 }}>
+                <input type="checkbox" checked={grouped} onChange={(e) => setGrouped(e.target.checked)} />
+                Group with section comments
+              </label>
+            </div>
+          )}
+
+          <textarea readOnly value={code} spellCheck={false} onFocus={(e) => e.target.select()} />
         </div>
         <footer>
-          <button className="btn ghost" onClick={onClose}>
-            Close
-          </button>
-          <button className="btn" onClick={download}>
-            Download .css
-          </button>
-          <button className="btn primary" onClick={copy}>
-            {copied ? "Copied ✓" : "Copy to clipboard"}
-          </button>
+          <button className="btn ghost" onClick={onClose}>Close</button>
+          <button className="btn" onClick={download}>Download {meta.filename}</button>
+          <button className="btn primary" onClick={copy}>{copied ? "Copied ✓" : "Copy"}</button>
         </footer>
       </div>
     </div>
