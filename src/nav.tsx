@@ -5,6 +5,7 @@ export type Tab =
   | "colorspace"
   | "contrast"
   | "semantics"
+  | "graph"
   | "spacing"
   | "typography"
   | "checks"

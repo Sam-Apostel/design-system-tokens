@@ -18,6 +18,7 @@ import { ExportModal } from "./components/ExportModal";
 import { EmptyState } from "./components/EmptyState";
 import { TypeStyleModal } from "./components/TypeStyleModal";
 import { SemanticsView } from "./components/SemanticsView";
+import { DependencyGraph } from "./components/DependencyGraph";
 import { CreateTokenModal } from "./components/CreateTokenModal";
 import { DocsModal } from "./components/DocsModal";
 import type { RecItem } from "./lib/recommendations";
@@ -27,6 +28,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "colorspace", label: "Color space" },
   { id: "contrast", label: "Contrast" },
   { id: "semantics", label: "Semantics" },
+  { id: "graph", label: "Graph" },
   { id: "spacing", label: "Spacing" },
   { id: "typography", label: "Typography" },
   { id: "checks", label: "Checks" },
@@ -219,6 +221,12 @@ function Main({
           <div style={{ maxWidth: 960, margin: "0 auto" }}>
             <SemanticsView onCreate={onCreate} onOpenDocs={onOpenDocs} />
           </div>
+        </div>
+      );
+    case "graph":
+      return (
+        <div className="content">
+          <DependencyGraph />
         </div>
       );
     case "spacing":
