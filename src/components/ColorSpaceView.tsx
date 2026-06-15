@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "../store";
 import { resolve } from "../lib/value";
 import {
@@ -240,6 +240,56 @@ function Plot({
 }) {
   const bounds = useMemo(() => computeBounds(items, mode, fit), [items, mode, fit]);
 
+  // Pan & zoom (hero plot only) by manipulating the SVG viewBox.
+  const svgRef = useRef<SVGSVGElement>(null);
+  const [view, setView] = useState({ x: 0, y: 0, w: S, h: S });
+  const drag = useRef<{ x: number; y: number } | null>(null);
+  const zoomed = view.w !== S || view.x !== 0 || view.y !== 0;
+
+  // Reset the view whenever what's plotted changes.
+  useEffect(() => {
+    if (big) setView({ x: 0, y: 0, w: S, h: S });
+  }, [big, mode, fit, items]);
+
+  // Non-passive wheel listener so we can preventDefault page scroll.
+  useEffect(() => {
+    if (!big) return;
+    const el = svgRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const rect = el.getBoundingClientRect();
+      setView((v) => {
+        const sx = v.x + ((e.clientX - rect.left) / rect.width) * v.w;
+        const sy = v.y + ((e.clientY - rect.top) / rect.height) * v.h;
+        const factor = e.deltaY < 0 ? 0.85 : 1.15;
+        const w = Math.max(S * 0.08, Math.min(S, v.w * factor));
+        const nx = sx - ((sx - v.x) / v.w) * w;
+        const ny = sy - ((sy - v.y) / v.h) * w;
+        return { x: nx, y: ny, w, h: w };
+      });
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [big]);
+
+  const onPointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
+    if (!big) return;
+    drag.current = { x: e.clientX, y: e.clientY };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+  const onPointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
+    if (!big || !drag.current) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const dx = ((e.clientX - drag.current.x) / rect.width) * view.w;
+    const dy = ((e.clientY - drag.current.y) / rect.height) * view.h;
+    drag.current = { x: e.clientX, y: e.clientY };
+    setView((v) => ({ ...v, x: v.x - dx, y: v.y - dy }));
+  };
+  const endDrag = () => {
+    drag.current = null;
+  };
+
   const link = useMemo(() => {
     if (!showLinks) return null;
     const m = new Map<string, PlotItem[]>();
@@ -257,7 +307,21 @@ function Plot({
 
   return (
     <figure className={`plot ${big ? "big" : ""}`}>
-      <svg viewBox={`0 0 ${S} ${S}`} className="plot-svg" preserveAspectRatio="xMidYMid meet">
+      {big && zoomed && (
+        <button className="btn small plot-reset" onClick={() => setView({ x: 0, y: 0, w: S, h: S })}>
+          Reset view
+        </button>
+      )}
+      <svg
+        ref={svgRef}
+        viewBox={big ? `${view.x} ${view.y} ${view.w} ${view.h}` : `0 0 ${S} ${S}`}
+        className={`plot-svg ${big ? "interactive" : ""}`}
+        preserveAspectRatio="xMidYMid meet"
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={endDrag}
+        onPointerLeave={endDrag}
+      >
         <rect x={PAD} y={PAD} width={INNER} height={INNER} fill="var(--panel)" stroke="var(--border)" />
         {showOriginX && <line x1={ox} y1={PAD} x2={ox} y2={S - PAD} stroke="var(--border-soft)" />}
         {showOriginY && <line x1={PAD} y1={oy} x2={S - PAD} y2={oy} stroke="var(--border-soft)" />}
