@@ -1,6 +1,6 @@
 import type { Token } from "../types";
 import { valueToCss } from "./value";
-import { topGroupOf, groupKeyOf, stepOf } from "./groups";
+import { topGroupOf } from "./groups";
 import { spacingKind } from "./spacing";
 
 export type ExportFormat = "css" | "json" | "scss" | "js" | "tailwind";
@@ -17,7 +17,7 @@ export const FORMATS: FormatMeta[] = [
   { id: "json", label: "JSON (W3C)", ext: "json", filename: "tokens.json" },
   { id: "scss", label: "SCSS", ext: "scss", filename: "_tokens.scss" },
   { id: "js", label: "JS / TS", ext: "ts", filename: "tokens.ts" },
-  { id: "tailwind", label: "Tailwind", ext: "js", filename: "tailwind.tokens.js" },
+  { id: "tailwind", label: "Tailwind v4", ext: "css", filename: "theme.css" },
 ];
 
 /* ----------------------------- CSS ----------------------------- */
@@ -113,56 +113,71 @@ export function toJsonW3C(tokens: Token[]): string {
   return JSON.stringify(root, null, 2) + "\n";
 }
 
-/* ----------------------------- Tailwind ----------------------------- */
+/* ----------------------------- Tailwind v4 (@theme) ----------------------------- */
 
-export function toTailwind(tokens: Token[]): string {
-  const colors: Record<string, unknown> = {};
-  const spacing: Record<string, string> = {};
-  const borderRadius: Record<string, string> = {};
-  const fontSize: Record<string, string> = {};
-  const fontWeight: Record<string, string> = {};
-  const fontFamily: Record<string, string> = {};
-  const lineHeight: Record<string, string> = {};
+type TokenValue = Token["value"];
 
-  const ref = (t: Token) => `var(--${t.name})`;
-  const tail = (name: string) => name.split("-").slice(1).join("-") || name;
+/** Drop leading category/property words, keeping at least the final segment. */
+function stripLeading(name: string, words: Set<string>): string {
+  const segs = name.split("-");
+  let i = 0;
+  while (i < segs.length - 1 && words.has(segs[i])) i++;
+  return segs.slice(i).join("-");
+}
 
-  for (const t of order(tokens)) {
-    if (t.category === "color") {
-      const g = groupKeyOf(t.name);
-      const step = stepOf(t.name);
-      if (g === t.name) {
-        colors[t.name] = ref(t);
-      } else {
-        const bucket = (colors[g] as Record<string, string>) ?? (colors[g] = {});
-        (bucket as Record<string, string>)[step] = ref(t);
-      }
-    } else if (t.category === "spacing") {
-      if (spacingKind(t.name) === "radius") borderRadius[tail(t.name)] = ref(t);
-      else spacing[tail(t.name)] = ref(t);
-    } else if (t.category === "typography") {
-      const v = t.value.kind === "raw" ? t.value.raw.trim() : "";
-      if (/family|face/.test(t.name) || /,/.test(v)) fontFamily[tail(t.name)] = ref(t);
-      else if (/weight/.test(t.name) || /^\d{2,3}$/.test(v)) fontWeight[tail(t.name)] = ref(t);
-      else if (/line-?height|leading/.test(t.name)) lineHeight[tail(t.name)] = ref(t);
-      else fontSize[tail(t.name)] = ref(t);
-    }
+const COLOR_WORDS = new Set(["color", "colors", "colour", "colours", "palette"]);
+const RADIUS_WORDS = new Set(["radius", "radii", "rounded", "corner"]);
+const SPACE_WORDS = new Set(["spacing", "space"]);
+const TYPE_WORDS = new Set(["font", "text", "type", "typography"]);
+
+/** Map a token to its Tailwind v4 theme variable name, or null to skip. */
+function v4Var(t: Token): string | null {
+  if (t.category === "color") return `--color-${stripLeading(t.name, COLOR_WORDS)}`;
+  if (t.category === "spacing") {
+    if (spacingKind(t.name) === "radius") return `--radius-${stripLeading(t.name, RADIUS_WORDS)}`;
+    return `--spacing-${stripLeading(t.name, SPACE_WORDS)}`;
+  }
+  if (t.category === "typography") {
+    const v = t.value.kind === "raw" ? t.value.raw.trim() : "";
+    const n = t.name;
+    if (/family|face/.test(n) || /,/.test(v)) return `--font-${stripLeading(n, new Set([...TYPE_WORDS, "family", "face"]))}`;
+    if (/weight/.test(n) || /^\d{2,3}$/.test(v)) return `--font-weight-${stripLeading(n, new Set([...TYPE_WORDS, "weight"]))}`;
+    if (/line-?height|leading/.test(n)) return `--leading-${stripLeading(n, new Set(["line", "height", "leading"]))}`;
+    if (/letter-?spacing|tracking/.test(n)) return `--tracking-${stripLeading(n, new Set(["letter", "spacing", "tracking"]))}`;
+    return `--text-${stripLeading(n, new Set([...TYPE_WORDS, "size"]))}`;
+  }
+  return null;
+}
+
+export function toTailwindV4(tokens: Token[], modeList: string[] = ["base"]): string {
+  const ordered = order(tokens);
+  const varMap = new Map<string, string>(); // token name → theme var
+  for (const t of ordered) {
+    const v = v4Var(t);
+    if (v) varMap.set(t.name, v);
   }
 
-  const extend: Record<string, unknown> = {};
-  if (Object.keys(colors).length) extend.colors = colors;
-  if (Object.keys(spacing).length) extend.spacing = spacing;
-  if (Object.keys(borderRadius).length) extend.borderRadius = borderRadius;
-  if (Object.keys(fontSize).length) extend.fontSize = fontSize;
-  if (Object.keys(fontWeight).length) extend.fontWeight = fontWeight;
-  if (Object.keys(fontFamily).length) extend.fontFamily = fontFamily;
-  if (Object.keys(lineHeight).length) extend.lineHeight = lineHeight;
+  // Alias to another exported token → reference its theme var; else literal.
+  const valueCss = (v: TokenValue): string =>
+    v.kind === "ref" && varMap.has(v.ref) ? `var(${varMap.get(v.ref)})` : valueToCss(v);
+  const modeVal = (t: Token, mode: string): TokenValue => t.modes?.[mode] ?? t.value;
 
-  return `// Tailwind theme referencing the exported CSS variables.\nmodule.exports = ${JSON.stringify(
-    { theme: { extend } },
-    null,
-    2,
-  )};\n`;
+  const first = modeList[0];
+  const exported = ordered.filter((t) => varMap.has(t.name));
+
+  let out = "@import \"tailwindcss\";\n\n@theme {\n";
+  out += exported.map((t) => `  ${varMap.get(t.name)}: ${valueCss(modeVal(t, first))};`).join("\n");
+  out += "\n}\n";
+
+  for (const mode of modeList.slice(1)) {
+    const overrides = exported.filter((t) => valueCss(modeVal(t, mode)) !== valueCss(modeVal(t, first)));
+    if (overrides.length) {
+      out += `\n[data-theme="${mode}"] {\n`;
+      out += overrides.map((t) => `  ${varMap.get(t.name)}: ${valueCss(modeVal(t, mode))};`).join("\n");
+      out += "\n}\n";
+    }
+  }
+  return out;
 }
 
 /* ----------------------------- multi-mode CSS ----------------------------- */
@@ -208,7 +223,7 @@ export function exportTokens(
     case "js":
       return toJs(tokens);
     case "tailwind":
-      return toTailwind(tokens);
+      return toTailwindV4(tokens, modeList);
   }
 }
 
