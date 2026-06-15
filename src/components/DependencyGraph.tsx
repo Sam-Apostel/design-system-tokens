@@ -57,8 +57,6 @@ export function DependencyGraph() {
 
   if (tokens.length === 0) return <div className="empty">No tokens to graph.</div>;
 
-  const center = (n: Node) => ({ x: n.x, y: n.y + ROW_H / 2 });
-
   return (
     <div>
       <div className="section-title">
@@ -73,13 +71,21 @@ export function DependencyGraph() {
         </label>
       </div>
       <p className="hint">
-        Each token sits in its tier; arrows point from an alias to the token it references
-        (<b>component → semantic → primitive</b>). Hover to trace a token's links. Amber = a primitive
-        nothing references; red = an alias whose target is missing.
+        Each token sits in its tier and arrows flow <b>left → right</b> from a token to the ones that
+        reference it (<b>primitive → semantic → component</b>). Hover to trace a token's links. Amber = a
+        primitive nothing references; red = an alias whose target is missing.
       </p>
 
       <div className="graph-scroll">
         <svg width={width} height={height} className="graph-svg">
+          <defs>
+            <marker id="ts-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+              <path d="M0,0 L10,5 L0,10 z" fill="var(--plot-line)" />
+            </marker>
+            <marker id="ts-arrow-on" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto">
+              <path d="M0,0 L10,5 L0,10 z" fill="var(--accent)" />
+            </marker>
+          </defs>
           {TIER_ORDER.filter((t) => nodes.some((n) => n.tier === t)).map((t) => {
             const col = nodes.find((n) => n.tier === t)!.col;
             return (
@@ -90,20 +96,23 @@ export function DependencyGraph() {
           })}
 
           {edges.map((e, i) => {
-            const a = nodeByName.get(e.from);
-            const b = nodeByName.get(e.to);
-            if (!a || !b) return null;
-            const s = { x: a.x + NODE_W, y: a.y + ROW_H / 2 };
-            const t = center(b);
+            const from = nodeByName.get(e.from); // the alias (consumer)
+            const dep = nodeByName.get(e.to); // the token it references (dependency)
+            if (!from || !dep) return null;
+            // Draw left→right from the dependency to the consumer that uses it.
+            const s = { x: dep.x + NODE_W, y: dep.y + ROW_H / 2 };
+            const t = { x: from.x, y: from.y + ROW_H / 2 };
             const dim = active != null && !(active.has(e.from) && active.has(e.to));
+            const on = active != null && !dim;
             const cx = COL_GAP * 0.5;
             return (
               <path
                 key={i}
                 d={`M ${s.x} ${s.y} C ${s.x + cx} ${s.y} ${t.x - cx} ${t.y} ${t.x} ${t.y}`}
                 fill="none"
-                stroke={dim ? "var(--plot-line-dim)" : active ? "var(--accent)" : "var(--plot-line)"}
-                strokeWidth={1.4}
+                stroke={dim ? "var(--plot-line-dim)" : on ? "var(--accent)" : "var(--plot-line)"}
+                strokeWidth={on ? 1.8 : 1.4}
+                markerEnd={dim ? undefined : on ? "url(#ts-arrow-on)" : "url(#ts-arrow)"}
               />
             );
           })}
