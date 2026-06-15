@@ -137,6 +137,7 @@ export default function App() {
                   </button>
                 ))}
               <button
+                aria-label={modeList.length > 1 ? "Add another mode" : "Split into light and dark modes"}
                 onClick={() => dispatch({ type: "addMode" })}
                 title={modeList.length > 1 ? "Add another mode" : "Split into light / dark modes"}
               >
@@ -144,6 +145,7 @@ export default function App() {
               </button>
               {modeList.length > 1 && activeMode !== modeList[0] && (
                 <button
+                  aria-label={`Remove the ${activeMode} mode`}
                   title={`Remove the "${activeMode}" mode`}
                   onClick={() => dispatch({ type: "removeMode", name: activeMode })}
                 >
@@ -166,6 +168,7 @@ export default function App() {
             <select
               className="vision-select"
               value={vision}
+              aria-label="Simulate color-vision deficiency"
               onChange={(e) => setVision(e.target.value as CvdMode)}
               title="Simulate color-vision deficiency"
             >

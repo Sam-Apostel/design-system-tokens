@@ -92,6 +92,19 @@ select {
   display: flex;
   gap: 2px;
   margin-left: 8px;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.tab {
+  white-space: nowrap;
+}
+
+/* Visible keyboard focus everywhere. */
+:where(button, a, input, select, textarea):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  border-radius: 4px;
 }
 .tab {
   background: transparent;
@@ -1411,4 +1424,89 @@ input[type="color"] {
 
 .mode-switch button {
   text-transform: capitalize;
+}
+
+/* ===================================================================
+   Responsive / mobile
+   =================================================================== */
+
+@media (max-width: 880px) {
+  body { font-size: 13.5px; }
+
+  /* Topbar: brand first, tabs full-width scroll row, actions wrap below. */
+  .topbar {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 8px 12px;
+  }
+  .topbar .spacer { display: none; }
+  .brand { order: 1; }
+  .tabs {
+    order: 2;
+    width: 100%;
+    margin-left: 0;
+    -webkit-overflow-scrolling: touch;
+  }
+  .topbar > .btn,
+  .topbar > .seg,
+  .topbar > .vision-select {
+    order: 3;
+  }
+  .vision-select { flex: 1 1 auto; min-width: 0; }
+
+  /* Stack the split layout; let the page scroll instead of each column. */
+  .content.split {
+    grid-template-columns: 1fr;
+    overflow: auto;
+    gap: 16px;
+  }
+  .content.split .col { overflow: visible; min-height: 0; }
+  .content { padding: 14px; }
+
+  /* Collapse multi-column grids. */
+  .tier-overview { grid-template-columns: 1fr; }
+  .tier-arrow { display: none; }
+  .type-form-grid { grid-template-columns: 1fr; }
+  .cov-grid,
+  .pairing-grid,
+  .type-card-grid { grid-template-columns: 1fr; }
+  .plot-grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
+  .plot-hero { max-width: 100%; }
+
+  /* Editor value row wraps so the color picker + field fit. */
+  .link-row { flex-wrap: wrap; }
+  .link-row select { flex: 1 1 100%; }
+
+  /* Token list editor & rows a touch larger for touch targets. */
+  .row { padding: 9px 8px; }
+  .btn { padding: 8px 12px; }
+  .tab { padding: 8px 12px; }
+
+  /* Modals fill most of the screen. */
+  .modal { width: 100%; max-height: 92vh; border-radius: 12px; }
+  .modal .body { padding: 14px; }
+  .modal-backdrop { padding: 10px; }
+  .modal textarea { min-height: 200px; }
+
+  /* Size-preview column narrower in dense lists. */
+  .viz-preview { width: 160px; }
+}
+
+@media (max-width: 520px) {
+  .brand small { display: none; }
+  .btn { padding: 8px 10px; font-size: 13px; }
+  .viz-grid .viz-item { gap: 10px; }
+  .viz-preview { width: 120px; }
+  .contrast-cell { width: 36px; height: 30px; }
+  /* Bigger tap targets for icon-only seg buttons (undo/redo, modes). */
+  .seg button { min-width: 34px; min-height: 32px; }
+}
+
+/* Coarse-pointer (touch) tweaks regardless of width. */
+@media (pointer: coarse) {
+  .btn,
+  .tab,
+  .seg button,
+  .chip-btn { min-height: 34px; }
+  .group-label { padding: 6px 6px; }
 }
