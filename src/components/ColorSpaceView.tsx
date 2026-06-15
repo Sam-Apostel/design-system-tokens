@@ -169,7 +169,17 @@ export function ColorSpaceView() {
       ) : (
         <>
           <div className="plot-hero">
-            <Plot title="All colors" items={items} mode={mode} showLinks={showLinks} axis={axis} fit={fit} emphasize={emphasize} big />
+            <Plot
+              title="All colors"
+              items={items}
+              mode={mode}
+              showLinks={showLinks}
+              axis={axis}
+              fit={fit}
+              emphasize={emphasize}
+              onHoverRamp={setHoverRamp}
+              big
+            />
           </div>
 
           {scales.length > 0 && (
@@ -227,6 +237,7 @@ function Plot({
   big,
   metrics,
   emphasize,
+  onHoverRamp,
 }: {
   title: string;
   items: PlotItem[];
@@ -237,6 +248,7 @@ function Plot({
   big?: boolean;
   metrics?: RampMetrics;
   emphasize?: string | null;
+  onHoverRamp?: (ramp: string | null) => void;
 }) {
   const bounds = useMemo(() => computeBounds(items, mode, fit), [items, mode, fit]);
 
@@ -351,11 +363,14 @@ function Plot({
               key={it.token.id}
               cx={px}
               cy={py}
-              r={big ? 7 : 6}
+              r={big ? (emphasize === it.ramp ? 8 : 7) : 6}
               fill={it.css}
-              stroke="rgba(0,0,0,0.5)"
-              strokeWidth={1}
+              stroke={emphasize === it.ramp ? "#fff" : "rgba(0,0,0,0.5)"}
+              strokeWidth={emphasize === it.ramp ? 1.5 : 1}
               opacity={dim ? 0.12 : 1}
+              style={onHoverRamp ? { cursor: "pointer" } : undefined}
+              onMouseEnter={onHoverRamp ? () => onHoverRamp(it.ramp) : undefined}
+              onMouseLeave={onHoverRamp ? () => onHoverRamp(null) : undefined}
             >
               <title>{`--${it.token.name}\n${it.hex}`}</title>
             </circle>
