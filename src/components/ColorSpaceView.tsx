@@ -11,6 +11,7 @@ import {
   type RGB,
 } from "../lib/color";
 import { buildRamps } from "../lib/groups";
+import { rampMetrics, type RampMetrics } from "../lib/rampMetrics";
 import type { Token } from "../types";
 
 type PlotMode = "ab" | "LC" | "LH";
@@ -119,10 +120,15 @@ export function ColorSpaceView() {
     return out;
   }, [tokens, byName, space]);
 
+  // Real scales only (≥2 distinct colors), each with quality metrics, sorted
+  // worst-first so the most uneven ramps surface at the top.
   const scales = useMemo(() => {
     const m = new Map<string, PlotItem[]>();
     for (const it of items) (m.get(it.ramp) ?? m.set(it.ramp, []).get(it.ramp)!).push(it);
-    return [...m.entries()].filter(([, g]) => g.length >= 2).sort((a, b) => a[0].localeCompare(b[0]));
+    return [...m.entries()]
+      .filter(([, g]) => new Set(g.map((i) => i.hex)).size >= 2)
+      .map(([key, group]) => ({ key, group, metrics: rampMetrics(group.map((i) => i.rgb)) }))
+      .sort((a, b) => b.metrics.unevenness - a.metrics.unevenness);
   }, [items]);
 
   const axis = AXIS_LABELS[mode][space];
@@ -167,10 +173,22 @@ export function ColorSpaceView() {
             <>
               <div className="section-title" style={{ marginTop: 24 }}>
                 Per scale <span className="count">({scales.length})</span>
+                <span className="faint" style={{ fontSize: 11, textTransform: "none", letterSpacing: 0 }}>
+                  sorted most-uneven first
+                </span>
               </div>
               <div className="plot-grid">
-                {scales.map(([key, group]) => (
-                  <Plot key={key} title={key} items={group} mode={mode} showLinks={showLinks} axis={axis} fit={fit} />
+                {scales.map(({ key, group, metrics }) => (
+                  <Plot
+                    key={key}
+                    title={key}
+                    items={group}
+                    mode={mode}
+                    showLinks={showLinks}
+                    axis={axis}
+                    fit={fit}
+                    metrics={metrics}
+                  />
                 ))}
               </div>
             </>
@@ -199,6 +217,7 @@ function Plot({
   axis,
   fit,
   big,
+  metrics,
 }: {
   title: string;
   items: PlotItem[];
@@ -207,6 +226,7 @@ function Plot({
   axis: { x: string; y: string };
   fit: boolean;
   big?: boolean;
+  metrics?: RampMetrics;
 }) {
   const bounds = useMemo(() => computeBounds(items, mode, fit), [items, mode, fit]);
 
@@ -250,6 +270,16 @@ function Plot({
         })}
       </svg>
       <figcaption className="mono">{title}</figcaption>
+      {metrics && (
+        <div className="plot-metrics mono">
+          <span className={metrics.lightnessEvenness < 0.7 ? "warn" : ""}>
+            ΔL {Math.round(metrics.lightnessEvenness * 100)}%
+          </span>
+          <span className={metrics.hueDrift > 25 ? "warn" : ""}>
+            {metrics.hueDrift < 1 ? "hue steady" : `hue ±${Math.round(metrics.hueDrift)}°`}
+          </span>
+        </div>
+      )}
     </figure>
   );
 }

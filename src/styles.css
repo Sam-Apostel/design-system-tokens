@@ -1058,3 +1058,15 @@ input[type="color"] {
   line-height: 1.7;
   font-size: 13px;
 }
+
+.plot-metrics {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 4px;
+  font-size: 10.5px;
+  color: var(--text-faint);
+}
+.plot-metrics .warn {
+  color: var(--warning);
+}
