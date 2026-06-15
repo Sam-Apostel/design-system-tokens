@@ -12,6 +12,7 @@ import { LintView } from "./components/LintView";
 import { ImportModal } from "./components/ImportModal";
 import { ExportModal } from "./components/ExportModal";
 import { EmptyState } from "./components/EmptyState";
+import { TypeStyleModal } from "./components/TypeStyleModal";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "palette", label: "Palette" },
@@ -36,6 +37,7 @@ export default function App() {
   const [focus, setFocus] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [newTypeStyle, setNewTypeStyle] = useState(false);
 
   const navigate = useCallback((t: Tab, token?: string) => {
     setTab(t);
@@ -96,16 +98,21 @@ export default function App() {
           </button>
         </div>
 
-        {empty ? <EmptyState onImport={() => setImporting(true)} /> : <Main tab={tab} />}
+        {empty ? (
+          <EmptyState onImport={() => setImporting(true)} />
+        ) : (
+          <Main tab={tab} onNewTypeStyle={() => setNewTypeStyle(true)} />
+        )}
 
         {importing && <ImportModal onClose={() => setImporting(false)} />}
         {exporting && <ExportModal onClose={() => setExporting(false)} />}
+        {newTypeStyle && <TypeStyleModal onClose={() => setNewTypeStyle(false)} />}
       </div>
     </NavProvider>
   );
 }
 
-function Main({ tab }: { tab: Tab }) {
+function Main({ tab, onNewTypeStyle }: { tab: Tab; onNewTypeStyle: () => void }) {
   switch (tab) {
     case "palette":
       return <Split left={<TokenList category="color" title="Color tokens" />}><PaletteView /></Split>;
@@ -116,7 +123,20 @@ function Main({ tab }: { tab: Tab }) {
     case "spacing":
       return <Split left={<TokenList category="spacing" title="Spacing tokens" />}><SpacingView /></Split>;
     case "typography":
-      return <Split left={<TokenList category="typography" title="Typography tokens" />}><TypographyView /></Split>;
+      return (
+        <Split
+          left={
+            <TokenList
+              category="typography"
+              title="Typography tokens"
+              onAdd={onNewTypeStyle}
+              addLabel="+ New style"
+            />
+          }
+        >
+          <TypographyView onNewStyle={onNewTypeStyle} />
+        </Split>
+      );
     case "checks":
       return (
         <div className="content">

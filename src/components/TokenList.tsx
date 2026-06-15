@@ -13,9 +13,12 @@ import { SizePreview } from "./SizePreview";
 interface Props {
   category?: TokenCategory;
   title: string;
+  /** When provided, the "+ Add" button calls this instead of adding a raw token. */
+  onAdd?: () => void;
+  addLabel?: string;
 }
 
-export function TokenList({ category, title }: Props) {
+export function TokenList({ category, title, onAdd, addLabel }: Props) {
   const { tokens, dispatch } = useStore();
   const { focus, clearFocus } = useNav();
   const [editing, setEditing] = useState<string | null>(null);
@@ -102,12 +105,16 @@ export function TokenList({ category, title }: Props) {
         <button
           className="btn small"
           onClick={() => {
+            if (onAdd) {
+              onAdd();
+              return;
+            }
             const seed =
               category === "color" ? "#888888" : category === "spacing" ? "8px" : category === "typography" ? "16px" : "";
             dispatch({ type: "add", name: `${category ?? "token"}-new`, raw: seed });
           }}
         >
-          + Add
+          {addLabel ?? "+ Add"}
         </button>
       </div>
 

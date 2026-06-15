@@ -47,7 +47,7 @@ function styleKeyOf(name: string): string {
 
 const SAMPLE = "The quick brown fox jumps over the lazy dog";
 
-export function TypographyView() {
+export function TypographyView({ onNewStyle }: { onNewStyle?: () => void }) {
   const { tokens, byName } = useStore();
   const { navigate } = useNav();
   const issues = useMemo(() => issuesByToken(lint(tokens)), [tokens]);
@@ -89,14 +89,33 @@ export function TypographyView() {
   const defaultFamily = typo.find((t) => t.prop === "family")?.raw ?? undefined;
 
   if (typo.length === 0) {
-    return <div className="empty">No typography tokens detected.</div>;
+    return (
+      <div className="empty">
+        No typography tokens yet.
+        {onNewStyle && (
+          <div style={{ marginTop: 12 }}>
+            <button className="btn primary" onClick={onNewStyle}>
+              + New text style
+            </button>
+          </div>
+        )}
+      </div>
+    );
   }
 
   const PROP_ORDER: Prop[] = ["family", "size", "weight", "line", "tracking", "other"];
 
   return (
     <div>
-      <div className="section-title">Typography</div>
+      <div className="section-title">
+        Typography
+        <div className="spacer" />
+        {onNewStyle && (
+          <button className="btn small" onClick={onNewStyle}>
+            + New text style
+          </button>
+        )}
+      </div>
 
       {composites.length > 0 && (
         <>
