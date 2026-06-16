@@ -102,6 +102,53 @@ export function ComponentsView() {
         </section>
 
         <section>
+          <div className="cp-h">Controls</div>
+          <div className="cp-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
+            <div className="cp-field">
+              <label>Email</label>
+              <input className="cp-input" placeholder="you@example.com" defaultValue="" />
+            </div>
+            <div className="cp-field">
+              <label>Invalid</label>
+              <input className="cp-input cp-input--invalid" defaultValue="not-an-email" />
+              <div className="cp-help">Enter a valid email.</div>
+            </div>
+            <div className="cp-field">
+              <label>Disabled</label>
+              <input className="cp-input" placeholder="Read only" disabled />
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <div className="cp-h">Chips &amp; tabs</div>
+          <div className="cp-row" style={{ marginBottom: 18 }}>
+            <span className="cp-chip">Design <small>✕</small></span>
+            <span className="cp-chip">Engineering <small>✕</small></span>
+            <span className="cp-chip">@mention</span>
+          </div>
+          <div className="cp-tabs">
+            <button className="cp-tab-trigger active">Overview</button>
+            <button className="cp-tab-trigger">Activity</button>
+            <button className="cp-tab-trigger">Settings</button>
+          </div>
+        </section>
+
+        <section>
+          <div className="cp-h">Table</div>
+          <table className="cp-table">
+            <thead>
+              <tr><th>Name</th><th>Status</th><th>Owner</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Acme migration</td><td>In review</td><td>A. Patel</td></tr>
+              <tr><td>Billing revamp</td><td>Shipped</td><td>J. Kim</td></tr>
+              <tr><td>Search index</td><td>Blocked</td><td>R. Diaz</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section>
           <div className="cp-h">Typography</div>
           <div className="cp-type">
             <div className="cp-type-row">
@@ -141,8 +188,9 @@ export function ComponentsView() {
       </div>
 
       <p className="hint" style={{ marginTop: 12 }}>
-        Samples read your tokens (contract or shadcn names) via fallbacks. The more of the semantic
-        layer you define, the closer this matches your real UI.
+        Each part resolves through a broad fallback chain, so the preview uses whatever your set
+        provides — contract names, shadcn names, or component-scoped ones (button-bg, control-*,
+        toast-*, table-*, chip-*). The more of the layer you define, the closer this matches your real UI.
       </p>
     </div>
   );

@@ -16,7 +16,15 @@ function isLength(v: string): boolean {
 }
 
 function looksLikeFontFamily(v: string): boolean {
-  return /,/.test(v) && /[a-z]/i.test(v) && !isColor(v);
+  if (!/,/.test(v) || !/[a-z]/i.test(v) || isColor(v)) return false;
+  // Exclude comma-bearing values that are actually shadows / gradients /
+  // transitions / filters: those carry lengths, colors, or functions, which a
+  // real font stack never does.
+  if (/#[0-9a-f]{3,8}\b/i.test(v)) return false;
+  if (/\b(rgba?|hsla?|okl?ch|oklab|lab|lch|var|calc|color-mix|url|gradient|inset|cubic-bezier)\b/i.test(v)) return false;
+  if (/(?:^|\s|,)-?\d*\.?\d+(px|rem|em|%|vh|vw|vmin|vmax|pt|pc|ch|ex|cm|mm|in|deg|ms|s)\b/i.test(v)) return false;
+  if (/\(/.test(v)) return false;
+  return true;
 }
 
 /**

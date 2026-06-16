@@ -178,6 +178,43 @@ export function designedPairings(tokens: Token[], byName: Map<string, Token>): D
 }
 
 /**
+ * Pick a surface from the token set on which `fg` is readable — the first base
+ * surface (ordered light→brand→dark) that clears AA, else the highest-contrast
+ * one, else a black/white fallback. Used to preview a text style on a sensible
+ * background instead of a fixed panel (so light-on-dark styles stay legible).
+ */
+export function bestBackgroundFor(
+  fg: RGB,
+  tokens: Token[],
+  byName: Map<string, Token>,
+): { name: string; rgb: RGB } {
+  const order = [
+    "surface-raised", "surface", "background", "surface-subtle", "surface-overlay",
+    "card", "panel-bg", "background-subtle", "color-primary", "primary", "button-bg",
+    "background-inverse", "surface-inverse",
+  ];
+  const rank = (n: string) => { const i = order.indexOf(n); return i < 0 ? order.length : i; };
+  const surfaces: { name: string; rgb: RGB }[] = [];
+  for (const t of tokens) {
+    if (t.category !== "color") continue;
+    if (colorRole(t.name) !== "bg" && !order.includes(t.name)) continue;
+    const rgb = parseColor(resolve(t, byName).finalRaw ?? "");
+    if (rgb && rgb.a > 0.5) surfaces.push({ name: t.name, rgb });
+  }
+  surfaces.sort((a, b) => rank(a.name) - rank(b.name));
+  let best: { name: string; rgb: RGB } | null = null;
+  let bestC = 0;
+  for (const s of surfaces) {
+    const c = contrastRatio(fg, s.rgb);
+    if (c >= 4.5) return s;
+    if (c > bestC) { bestC = c; best = s; }
+  }
+  if (best && bestC >= 2.2) return best;
+  const light = (0.2126 * fg.r + 0.7152 * fg.g + 0.0722 * fg.b) > 0.5;
+  return { name: light ? "#1a1a1a" : "#ffffff", rgb: light ? { r: 0.1, g: 0.1, b: 0.1, a: 1 } : { r: 1, g: 1, b: 1, a: 1 } };
+}
+
+/**
  * Contrast failures the linter should flag: designed pairings that fall below
  * AA, excluding states where low contrast is intentional (disabled/placeholder/
  * inverse). Scales because it only considers real pairings, not the cross.

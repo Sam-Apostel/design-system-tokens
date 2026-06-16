@@ -2,6 +2,8 @@ import { useMemo, useState } from "react";
 import { useStore } from "../store";
 import { useNav } from "../nav";
 import { resolve } from "../lib/value";
+import { parseColor, toCssDisplay } from "../lib/color";
+import { bestBackgroundFor } from "../lib/contrastAudit";
 import { lint, issuesByToken } from "../lib/lint";
 import type { Token } from "../types";
 
@@ -115,6 +117,11 @@ export function TypographyView({ onNewStyle }: { onNewStyle?: () => void }) {
   }, [typo]);
 
   const defaultFamily = typo.find((t) => t.prop === "family")?.raw ?? undefined;
+  // Default text color (for styles with no explicit color) — the app-wide --text.
+  const defaultTextRgb = useMemo(() => {
+    const t = byName.get("text") ?? byName.get("color-text") ?? byName.get("foreground");
+    return (t && parseColor(resolve(t, byName).finalRaw ?? "")) || { r: 0.1, g: 0.1, b: 0.1, a: 1 };
+  }, [byName]);
 
   if (typo.length === 0) {
     return (
@@ -167,6 +174,9 @@ export function TypographyView({ onNewStyle }: { onNewStyle?: () => void }) {
               };
               const tracking = find("tracking");
               const specs = [find("size"), find("weight"), find("line"), tracking && tracking !== "0" && tracking !== "0rem" ? tracking : null, shortFamily(find("family") ?? defaultFamily)].filter(Boolean);
+              // Render the sample on a background its text color is readable on.
+              const textRgb = (colorTok && parseColor(colorTok.raw ?? "")) || defaultTextRgb;
+              const bg = bestBackgroundFor(textRgb, tokens, byName);
               const open = expanded.has(g.key);
               const allTokens = colorTok ? [...g.list.map((t) => ({ name: t.token.name, raw: t.raw, isRef: t.token.value.kind === "ref", ref: t.token.value.kind === "ref" ? t.token.value.ref : null, swatch: false })), { name: colorTok.token.name, raw: colorTok.raw, isRef: colorTok.token.value.kind === "ref", ref: colorTok.token.value.kind === "ref" ? colorTok.token.value.ref : null, swatch: true }] : g.list.map((t) => ({ name: t.token.name, raw: t.raw, isRef: t.token.value.kind === "ref", ref: t.token.value.kind === "ref" ? t.token.value.ref : null, swatch: false }));
               const sev = allTokens.map((t) => issues.get(t.name)).find(Boolean);
@@ -183,7 +193,7 @@ export function TypographyView({ onNewStyle }: { onNewStyle?: () => void }) {
                         {specs.join(" · ")}
                       </span>
                     </span>
-                    <span className="type-style-sample" style={style}>{SAMPLE}</span>
+                    <span className="type-style-sample" style={{ ...style, background: toCssDisplay(bg.rgb) }} title={`on --${bg.name.replace(/^#.*/, "(literal)")}`}>{SAMPLE}</span>
                     <span className="type-style-caret">{open ? "▾" : "▸"}</span>
                   </button>
                   {open && (
