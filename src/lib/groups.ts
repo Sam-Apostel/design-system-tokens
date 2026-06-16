@@ -13,6 +13,8 @@ export interface RampGroup {
   /** Group key, e.g. "color-blue". */
   key: string;
   tokens: Token[];
+  /** True for the synthetic catch-all of one-off colors (no real ramp). */
+  misc?: boolean;
 }
 
 /** The segment that identifies the step within a ramp (last segment). */
@@ -39,7 +41,12 @@ function stepRank(step: string): number {
   return i >= 0 ? i * 100 : 1e9; // unknowns sink to the end
 }
 
-/** Group tokens into ramps keyed by their group prefix, sorted by scale step. */
+/**
+ * Group tokens into ramps keyed by their group prefix, sorted by scale step.
+ * One-off tokens that would each form a ramp of a single swatch are collected
+ * into a trailing synthetic "other" group instead of fragmenting the view into
+ * dozens of single-item headers.
+ */
 export function buildRamps(tokens: Token[]): RampGroup[] {
   const map = new Map<string, Token[]>();
   for (const t of tokens) {
@@ -49,11 +56,25 @@ export function buildRamps(tokens: Token[]): RampGroup[] {
     else map.set(key, [t]);
   }
   const ramps: RampGroup[] = [];
+  const loners: Token[] = [];
   for (const [key, arr] of map) {
+    if (arr.length === 1) {
+      loners.push(arr[0]);
+      continue;
+    }
     arr.sort((a, b) => stepRank(stepOf(a.name)) - stepRank(stepOf(b.name)) || a.order - b.order);
     ramps.push({ key, tokens: arr });
   }
   ramps.sort((a, b) => a.key.localeCompare(b.key));
+  // Only fold when there are several one-offs; a lone leftover keeps its own
+  // (real, named) ramp rather than hiding under a meaningless "other".
+  if (loners.length >= 2) {
+    loners.sort((a, b) => a.name.localeCompare(b.name));
+    ramps.push({ key: "other", tokens: loners, misc: true });
+  } else if (loners.length === 1) {
+    ramps.push({ key: groupKeyOf(loners[0].name), tokens: loners });
+    ramps.sort((a, b) => a.key.localeCompare(b.key));
+  }
   return ramps;
 }
 

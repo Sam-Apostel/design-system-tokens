@@ -77,6 +77,7 @@ export function toJs(tokens: Token[]): string {
 
 function w3cType(t: Token): string {
   if (t.category === "color") return "color";
+  if (t.category === "shadow") return "shadow";
   if (t.category === "spacing") return "dimension";
   if (t.category === "typography") {
     const v = t.value.kind === "raw" ? t.value.raw.trim() : "";

@@ -751,6 +751,16 @@ input[type="color"] {
   color: var(--text-faint);
   font-weight: 500;
 }
+.group-label-static {
+  color: var(--text-faint);
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 2px 4px;
+  font-style: italic;
+}
+.group-header.synthetic { gap: 6px; }
 .group-label:hover {
   background: var(--bg-elev);
   color: var(--text);

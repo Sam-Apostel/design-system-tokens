@@ -191,13 +191,20 @@ function TopGroupView({
   const allTokens = [...group.directTokens, ...group.subgroups.flatMap((s) => s.tokens)];
   return (
     <div className="token-group">
-      <GroupHeader
-        label={group.key}
-        level="top"
-        onCommit={(label) => onRename(group.prefix, label)}
-        onDuplicate={() => onDuplicate(group.prefix, allTokens)}
-        onDelete={() => onDelete(group.prefix, allTokens.length)}
-      />
+      {group.synthetic ? (
+        <div className="group-header top synthetic">
+          <span className="group-label-static">{group.key}</span>
+          <span className="count">({allTokens.length})</span>
+        </div>
+      ) : (
+        <GroupHeader
+          label={group.key}
+          level="top"
+          onCommit={(label) => onRename(group.prefix, label)}
+          onDuplicate={() => onDuplicate(group.prefix, allTokens)}
+          onDelete={() => onDelete(group.prefix, allTokens.length)}
+        />
+      )}
       {group.directTokens.map(renderRow)}
       {group.subgroups.map((sub) => (
         <SubGroupView key={sub.prefix} parent={group.key} sub={sub} renderRow={renderRow} onRename={onRename} onDuplicate={onDuplicate} onDelete={onDelete} />

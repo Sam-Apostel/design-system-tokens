@@ -22,6 +22,8 @@ export interface TopGroup {
   /** Tokens that belong straight to the top group (no subgroup). */
   directTokens: Token[];
   subgroups: SubGroup[];
+  /** Synthetic catch-all of one-off tokens — not a real, renamable prefix. */
+  synthetic?: boolean;
 }
 
 const NUMERIC_RE = /^\d+$/;
@@ -74,6 +76,17 @@ export function buildGroupTree(tokens: Token[]): TopGroup[] {
   }
 
   result.sort((a, b) => a.key.localeCompare(b.key));
+
+  // Collapse one-token top groups into a single trailing "other" group so the
+  // sidebar isn't a wall of single-row headers. Rows still show full names, so
+  // nothing is lost. Only fold when several exist — a lone one keeps its name.
+  const singles = result.filter((g) => g.subgroups.length === 0 && g.directTokens.length === 1);
+  if (singles.length >= 2) {
+    const kept = result.filter((g) => !singles.includes(g));
+    const loners = singles.flatMap((g) => g.directTokens).sort((a, b) => a.name.localeCompare(b.name));
+    kept.push({ key: "other", prefix: "other", directTokens: loners, subgroups: [], synthetic: true });
+    return kept;
+  }
   return result;
 }
 

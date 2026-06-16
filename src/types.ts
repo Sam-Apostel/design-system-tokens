@@ -1,4 +1,4 @@
-export type TokenCategory = "color" | "spacing" | "typography" | "other";
+export type TokenCategory = "color" | "spacing" | "typography" | "shadow" | "other";
 
 /** A token value is either a literal ("raw") or an alias to another token. */
 export type TokenValue =

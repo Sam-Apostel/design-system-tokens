@@ -1,5 +1,6 @@
 import type { TokenCategory } from "../types";
 import { isColor } from "./color";
+import { isShadowToken } from "./shadows";
 
 const LENGTH_RE = /^-?[\d.]+(px|rem|em|%|vh|vw|vmin|vmax|ch|ex|pt|pc|cm|mm|in)$/i;
 const UNITLESS_NUM_RE = /^-?[\d.]+$/;
@@ -35,6 +36,18 @@ export function classify(name: string, finalRaw: string | null): TokenCategory {
   const v = (finalRaw ?? "").trim();
 
   if (v && isColor(v)) return "color";
+
+  // Box-shadow / elevation / ring values (offsets + blur + color, possibly
+  // multi-layer). These are not colors or lengths, so without this they fall
+  // through to "other". A token named *-shadow-color stays a color (handled
+  // above) — only real shadow definitions reach here.
+  if (isShadowToken(name, v)) return "shadow";
+
+  // A bare percentage whose name reads as a ratio (color-mix amount, opacity,
+  // blend) is NOT a spacing/size token — keep it out of the spacing bucket.
+  if (/^\d*\.?\d+%$/.test(v) && /(mix|ratio|opacity|amount|percent|alpha|blend|tint|shade)/i.test(name)) {
+    return "other";
+  }
 
   if (TYPO_NAME_RE.test(name)) {
     // text/type are also used for colors sometimes; only claim typography
