@@ -323,6 +323,19 @@ export function oklchInGamut(L: number, C: number, h: number): boolean {
   return [r, g, b].every((v) => v >= -eps && v <= 1 + eps);
 }
 
+/**
+ * Rotate hue / shift lightness of a color literal, preserving chroma and alpha.
+ * Returns a hex string, or null if the input isn't a color. Used to recolor a
+ * whole ramp at once (e.g. clone blue-* into teal-* by rotating hue).
+ */
+export function shiftColor(raw: string, dHue: number, dL = 0): string | null {
+  const rgb = parseColor(raw);
+  if (!rgb) return null;
+  const { L, C, h } = rgbToOklch(rgb);
+  const nl = Math.min(1, Math.max(0, L + dL));
+  return oklchToHex(nl, C, h + dHue, rgb.a);
+}
+
 /** Largest in-gamut chroma for a given L/h, found by binary search. */
 export function maxChroma(L: number, h: number): number {
   if (L <= 0 || L >= 1) return 0;

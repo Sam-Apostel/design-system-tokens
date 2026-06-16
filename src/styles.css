@@ -758,6 +758,57 @@ input[type="color"] {
 .group-label:hover .rename-hint {
   opacity: 1;
 }
+.group-header {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.group-menu {
+  position: relative;
+}
+.group-kebab {
+  opacity: 0;
+  background: transparent;
+  border: none;
+  color: var(--text-faint);
+  padding: 0 6px;
+  border-radius: 4px;
+  font-size: 15px;
+  line-height: 1;
+}
+.group-header:hover .group-kebab,
+.group-kebab[aria-expanded="true"] {
+  opacity: 1;
+}
+.group-kebab:hover {
+  background: var(--bg-elev);
+  color: var(--text);
+}
+@media (pointer: coarse) {
+  .group-kebab { opacity: 1; }
+}
+
+/* Duplicate-group preview */
+.dup-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+}
+.dup-pair {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.dup-chip {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  border: 1px solid var(--hairline);
+}
+.dup-arrow {
+  color: var(--text-faint);
+  font-size: 11px;
+}
 .group-edit {
   max-width: 220px;
   padding: 4px 8px;

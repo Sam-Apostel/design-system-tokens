@@ -9,6 +9,7 @@ import { lint, issuesByToken, type LintSeverity } from "../lib/lint";
 import { spacingKind, lengthToPx } from "../lib/spacing";
 import { TokenEditor } from "./TokenEditor";
 import { SizePreview } from "./SizePreview";
+import { DuplicateGroupModal } from "./DuplicateGroupModal";
 
 interface Props {
   category?: TokenCategory;
@@ -24,6 +25,13 @@ export function TokenList({ category, title, onAdd, addLabel }: Props) {
   const [editing, setEditing] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [pendingName, setPendingName] = useState<string | null>(null);
+  const [dupGroup, setDupGroup] = useState<{ prefix: string; tokens: Token[] } | null>(null);
+
+  const deleteGroup = (prefix: string, count: number) => {
+    if (confirm(`Delete all ${count} token${count === 1 ? "" : "s"} under --${prefix}-*? Aliases pointing here will break.`)) {
+      dispatch({ type: "removeGroup", prefix });
+    }
+  };
 
   const issues = useMemo(() => issuesByToken(lint(tokens)), [tokens]);
 
@@ -152,31 +160,47 @@ export function TokenList({ category, title, onAdd, addLabel }: Props) {
           group={top}
           renderRow={renderRow}
           onRename={(oldPrefix, newPrefix) => dispatch({ type: "renameGroup", oldPrefix, newPrefix })}
+          onDuplicate={(prefix, groupTokens) => setDupGroup({ prefix, tokens: groupTokens })}
+          onDelete={deleteGroup}
         />
       ))}
+
+      {dupGroup && (
+        <DuplicateGroupModal prefix={dupGroup.prefix} tokens={dupGroup.tokens} onClose={() => setDupGroup(null)} />
+      )}
     </div>
   );
+}
+
+interface GroupActions {
+  onDuplicate: (prefix: string, tokens: Token[]) => void;
+  onDelete: (prefix: string, count: number) => void;
 }
 
 function TopGroupView({
   group,
   renderRow,
   onRename,
+  onDuplicate,
+  onDelete,
 }: {
   group: TopGroup;
   renderRow: (t: Token) => React.ReactNode;
   onRename: (oldPrefix: string, newPrefix: string) => void;
-}) {
+} & GroupActions) {
+  const allTokens = [...group.directTokens, ...group.subgroups.flatMap((s) => s.tokens)];
   return (
     <div className="token-group">
       <GroupHeader
         label={group.key}
         level="top"
         onCommit={(label) => onRename(group.prefix, label)}
+        onDuplicate={() => onDuplicate(group.prefix, allTokens)}
+        onDelete={() => onDelete(group.prefix, allTokens.length)}
       />
       {group.directTokens.map(renderRow)}
       {group.subgroups.map((sub) => (
-        <SubGroupView key={sub.prefix} parent={group.key} sub={sub} renderRow={renderRow} onRename={onRename} />
+        <SubGroupView key={sub.prefix} parent={group.key} sub={sub} renderRow={renderRow} onRename={onRename} onDuplicate={onDuplicate} onDelete={onDelete} />
       ))}
     </div>
   );
@@ -187,18 +211,22 @@ function SubGroupView({
   sub,
   renderRow,
   onRename,
+  onDuplicate,
+  onDelete,
 }: {
   parent: string;
   sub: SubGroup;
   renderRow: (t: Token) => React.ReactNode;
   onRename: (oldPrefix: string, newPrefix: string) => void;
-}) {
+} & GroupActions) {
   return (
     <div className="subgroup">
       <GroupHeader
         label={sub.key}
         level="sub"
         onCommit={(label) => onRename(sub.prefix, `${parent}-${label}`)}
+        onDuplicate={() => onDuplicate(sub.prefix, sub.tokens)}
+        onDelete={() => onDelete(sub.prefix, sub.tokens.length)}
       />
       {sub.tokens.map((t) => (
         <div key={t.id} className="sub-row" title={leafLabel(t.name, sub.prefix)}>
@@ -209,18 +237,23 @@ function SubGroupView({
   );
 }
 
-/** Click-to-edit group label. Committing renames the whole group's tokens. */
+/** Click-to-edit group label + a menu for whole-group actions. */
 function GroupHeader({
   label,
   level,
   onCommit,
+  onDuplicate,
+  onDelete,
 }: {
   label: string;
   level: "top" | "sub";
   onCommit: (label: string) => void;
+  onDuplicate: () => void;
+  onDelete: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(label);
+  const [menu, setMenu] = useState(false);
 
   const commit = () => {
     setEditing(false);
@@ -248,17 +281,39 @@ function GroupHeader({
           }}
         />
       ) : (
-        <button
-          className="group-label"
-          title="Click to rename this whole group"
-          onClick={() => {
-            setValue(label);
-            setEditing(true);
-          }}
-        >
-          {label}
-          <span className="rename-hint">rename</span>
-        </button>
+        <>
+          <button
+            className="group-label"
+            title="Click to rename this whole group"
+            onClick={() => {
+              setValue(label);
+              setEditing(true);
+            }}
+          >
+            {label}
+            <span className="rename-hint">rename</span>
+          </button>
+          <div className="group-menu">
+            <button
+              className="group-kebab"
+              aria-label={`Actions for ${label}`}
+              aria-haspopup="menu"
+              aria-expanded={menu}
+              onClick={() => setMenu((o) => !o)}
+            >
+              ⋯
+            </button>
+            {menu && (
+              <>
+                <div className="tb-menu-backdrop" onClick={() => setMenu(false)} />
+                <div className="tb-menu-panel" role="menu" style={{ left: 0, right: "auto" }}>
+                  <button className="tb-item" onClick={() => { onDuplicate(); setMenu(false); }}>Duplicate…</button>
+                  <button className="tb-item danger" onClick={() => { onDelete(); setMenu(false); }}>Delete group</button>
+                </div>
+              </>
+            )}
+          </div>
+        </>
       )}
     </div>
   );

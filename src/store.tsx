@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useReducer, type ReactNode } from "react";
 import type { Token, TokenValue } from "./types";
 import { parseValue, indexByName, resolve } from "./lib/value";
+import { shiftColor } from "./lib/color";
 import { tokensFromCss, classifyAll } from "./lib/parseCss";
 import { cssFromHash } from "./lib/permalink";
 import { expandLightDark } from "./lib/lightdark";
@@ -11,6 +12,8 @@ type Action =
   | { type: "clear" }
   | { type: "rename"; id: string; name: string }
   | { type: "renameGroup"; oldPrefix: string; newPrefix: string }
+  | { type: "removeGroup"; prefix: string }
+  | { type: "duplicateGroup"; prefix: string; newPrefix: string; hueShift?: number; lightShift?: number }
   | { type: "setValue"; id: string; raw: string }
   | { type: "relink"; id: string; ref: string | null }
   | { type: "add"; name: string; raw: string }
@@ -107,6 +110,50 @@ function mutate(tokens: Token[], action: Action): Token[] {
         name === oldP ? newP : name.startsWith(oldP + "-") ? newP + name.slice(oldP.length) : name;
       const next = tokens.map((t) => remapTokenRefs({ ...t, name: remap(t.name) }, remap));
       return classifyAll(next);
+    }
+
+    case "removeGroup": {
+      const p = action.prefix;
+      const inGroup = (n: string) => n === p || n.startsWith(p + "-");
+      const next = tokens.filter((t) => !inGroup(t.name));
+      return next.length === tokens.length ? tokens : classifyAll(next);
+    }
+
+    case "duplicateGroup": {
+      const p = action.prefix;
+      const np = action.newPrefix.trim().replace(/^--/, "").replace(/-+$/, "");
+      if (!np || np === p) return tokens;
+      const inGroup = (n: string) => n === p || n.startsWith(p + "-");
+      const remap = (n: string) => (n === p ? np : np + n.slice(p.length));
+      const dH = action.hueShift ?? 0;
+      const dL = action.lightShift ?? 0;
+      const shiftVal = (v: TokenValue): TokenValue => {
+        if (v.kind === "ref") return inGroup(v.ref) ? { ...v, ref: remap(v.ref) } : v;
+        if (!dH && !dL) return v;
+        const shifted = shiftColor(v.raw, dH, dL);
+        return shifted ? { kind: "raw", raw: shifted } : v;
+      };
+      const existing = new Set(tokens.map((t) => t.name));
+      let order = tokens.length;
+      const clones: Token[] = [];
+      for (const t of tokens) {
+        if (!inGroup(t.name)) continue;
+        const name = remap(t.name);
+        if (existing.has(name)) continue;
+        existing.add(name);
+        const modes = t.modes
+          ? Object.fromEntries(Object.entries(t.modes).map(([m, v]) => [m, shiftVal(v)]))
+          : t.modes;
+        clones.push({
+          id: newId(),
+          name,
+          value: shiftVal(t.value),
+          modes,
+          category: "other",
+          order: order++,
+        });
+      }
+      return clones.length ? classifyAll([...tokens, ...clones]) : tokens;
     }
 
     case "setValue":
