@@ -16,6 +16,8 @@ import {
   type RGB,
 } from "../lib/color";
 import { buildRamps } from "../lib/groups";
+import { tierMap } from "../lib/tiers";
+import { isAlias } from "../lib/relations";
 import { rampMetrics, lightnessProfile, type RampMetrics, type LightnessStep } from "../lib/rampMetrics";
 import type { Token } from "../types";
 
@@ -159,10 +161,22 @@ export function ColorSpaceView() {
 
   const idToken = useMemo(() => new Map(tokens.map((t) => [t.id, t])), [tokens]);
 
+  // Only primitive color scales belong here — the color-space plot/editing acts
+  // on raw ramps (drag a stop), not semantic tokens or alias ramps that merely
+  // point at a primitive. Keep primitive-tier AND raw-valued colors: that drops
+  // semantic raw tokens (--background light-dark(...)), alias status ramps
+  // (--danger-* → red-*), and component aliases alike. The "other" one-offs
+  // bucket is skipped too, since it's a grab-bag, not a coherent scale.
+  const tiers = useMemo(() => tierMap(tokens), [tokens]);
   const items = useMemo<PlotItem[]>(() => {
-    const colors = tokens.filter((t) => t.category === "color");
+    const colors = tokens.filter(
+      (t) => t.category === "color" && tiers.get(t.name) === "primitive" && !isAlias(t),
+    );
     const rampKey = new Map<string, string>();
-    for (const ramp of buildRamps(colors)) for (const t of ramp.tokens) rampKey.set(t.id, ramp.key);
+    for (const ramp of buildRamps(colors)) {
+      if (ramp.misc) continue; // one-offs aren't a scale
+      for (const t of ramp.tokens) rampKey.set(t.id, ramp.key);
+    }
     const out: PlotItem[] = [];
     for (const t of colors) {
       const r = resolve(t, byName);
@@ -178,7 +192,7 @@ export function ColorSpaceView() {
       });
     }
     return out;
-  }, [tokens, byName, space]);
+  }, [tokens, byName, space, tiers]);
 
   // Real scales only (≥2 distinct colors), each with quality metrics + a
   // per-step lightness profile, sorted worst-first.
