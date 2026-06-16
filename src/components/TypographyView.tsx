@@ -174,9 +174,10 @@ export function TypographyView({ onNewStyle }: { onNewStyle?: () => void }) {
               };
               const tracking = find("tracking");
               const specs = [find("size"), find("weight"), find("line"), tracking && tracking !== "0" && tracking !== "0rem" ? tracking : null, shortFamily(find("family") ?? defaultFamily)].filter(Boolean);
-              // Render the sample on a background its text color is readable on.
+              // Render the sample on the style's own surface where possible
+              // (comment-author → comment-bg), else a readable default.
               const textRgb = (colorTok && parseColor(colorTok.raw ?? "")) || defaultTextRgb;
-              const bg = bestBackgroundFor(textRgb, tokens, byName);
+              const bg = bestBackgroundFor(textRgb, tokens, byName, g.key.split("-")[0]);
               const open = expanded.has(g.key);
               const allTokens = colorTok ? [...g.list.map((t) => ({ name: t.token.name, raw: t.raw, isRef: t.token.value.kind === "ref", ref: t.token.value.kind === "ref" ? t.token.value.ref : null, swatch: false })), { name: colorTok.token.name, raw: colorTok.raw, isRef: colorTok.token.value.kind === "ref", ref: colorTok.token.value.kind === "ref" ? colorTok.token.value.ref : null, swatch: true }] : g.list.map((t) => ({ name: t.token.name, raw: t.raw, isRef: t.token.value.kind === "ref", ref: t.token.value.kind === "ref" ? t.token.value.ref : null, swatch: false }));
               const sev = allTokens.map((t) => issues.get(t.name)).find(Boolean);

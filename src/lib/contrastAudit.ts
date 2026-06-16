@@ -187,31 +187,41 @@ export function bestBackgroundFor(
   fg: RGB,
   tokens: Token[],
   byName: Map<string, Token>,
+  groupPrefix?: string,
 ): { name: string; rgb: RGB } {
-  const order = [
-    "surface-raised", "surface", "background", "surface-subtle", "surface-overlay",
-    "card", "panel-bg", "background-subtle", "color-primary", "primary", "button-bg",
-    "background-inverse", "surface-inverse",
-  ];
-  const rank = (n: string) => { const i = order.indexOf(n); return i < 0 ? order.length : i; };
-  const surfaces: { name: string; rgb: RGB }[] = [];
+  const surfaces: { name: string; rgb: RGB; stateful: boolean }[] = [];
   for (const t of tokens) {
-    if (t.category !== "color") continue;
-    if (colorRole(t.name) !== "bg" && !order.includes(t.name)) continue;
+    if (t.category !== "color" || colorRole(t.name) !== "bg") continue;
     const rgb = parseColor(resolve(t, byName).finalRaw ?? "");
-    if (rgb && rgb.a > 0.5) surfaces.push({ name: t.name, rgb });
+    if (rgb && rgb.a > 0.5) surfaces.push({ name: t.name, rgb, stateful: /-(hover|active|focus|selected|disabled|pressed)(-|$)/.test(t.name) });
   }
-  surfaces.sort((a, b) => rank(a.name) - rank(b.name));
+  const get = (name: string) => surfaces.find((s) => s.name === name);
+  const lights = ["surface-raised", "surface", "background", "surface-subtle", "card", "panel-bg", "background-subtle"];
+  const darks = ["background-inverse", "surface-inverse", "color-primary", "primary", "button-bg", "almost-black"];
+
+  // 1. The style's own component surface (e.g. comment-author → comment-bg) —
+  //    its true context, used if the text is at least legible on it.
+  if (groupPrefix) {
+    const same = surfaces
+      .filter((s) => s.name === groupPrefix || s.name.startsWith(groupPrefix + "-"))
+      .sort((a, b) => Number(a.stateful) - Number(b.stateful) || a.name.length - b.name.length);
+    for (const s of same) if (contrastRatio(fg, s.rgb) >= 1.9) return s;
+  }
+  // 2. The default light surface, if the text reads on it (most styles).
+  const light = lights.map(get).find(Boolean) ?? { name: "#ffffff", rgb: { r: 1, g: 1, b: 1, a: 1 } as RGB };
+  if (contrastRatio(fg, light.rgb) >= 2.2) return { name: light.name, rgb: light.rgb };
+  // 3. Text is light/inverse → put it on a dark surface.
   let best: { name: string; rgb: RGB } | null = null;
   let bestC = 0;
-  for (const s of surfaces) {
+  for (const name of darks) {
+    const s = get(name);
+    if (!s) continue;
     const c = contrastRatio(fg, s.rgb);
-    if (c >= 4.5) return s;
+    if (c >= 3) return { name: s.name, rgb: s.rgb };
     if (c > bestC) { bestC = c; best = s; }
   }
   if (best && bestC >= 2.2) return best;
-  const light = (0.2126 * fg.r + 0.7152 * fg.g + 0.0722 * fg.b) > 0.5;
-  return { name: light ? "#1a1a1a" : "#ffffff", rgb: light ? { r: 0.1, g: 0.1, b: 0.1, a: 1 } : { r: 1, g: 1, b: 1, a: 1 } };
+  return { name: "#141414", rgb: { r: 0.08, g: 0.08, b: 0.08, a: 1 } };
 }
 
 /**
