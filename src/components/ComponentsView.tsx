@@ -33,13 +33,13 @@ export function ComponentsView() {
           <div className="cp-row">
             <button className="cp-btn cp-btn--primary">Primary</button>
             <button className="cp-btn cp-btn--secondary">Secondary</button>
-            <button className="cp-btn cp-btn--outline">Outline</button>
-            <button className="cp-btn cp-btn--ghost">Ghost</button>
-            <button className="cp-btn cp-btn--destructive">Delete</button>
+            <button className="cp-btn cp-btn--tertiary">Tertiary</button>
+            <button className="cp-btn cp-btn--skeleton">Skeleton</button>
             <button className="cp-btn cp-btn--primary" disabled>
               Disabled
             </button>
           </div>
+          <p className="cp-hint">Hover / press a button to see its interaction states.</p>
         </section>
 
         <section>

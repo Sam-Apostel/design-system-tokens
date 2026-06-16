@@ -1807,9 +1807,34 @@ input[type="color"] {
   --cp-control-fg: var(--control-text, var(--input-text-text-color, var(--cp-fg)));
   --cp-placeholder: var(--control-placeholder, var(--placeholder, var(--cp-muted)));
   --cp-ring: var(--focus-ring, var(--ring, var(--control-focus-ring, var(--cp-primary))));
-  --cp-radius: var(--radius-control, var(--control-radius, var(--button-radius, var(--radius-2, var(--rounded, var(--border-radius, var(--radius-md, 0.375rem)))))));
+  /* Controls (inputs/selects) use the control radius; buttons get their own. */
+  --cp-radius: var(--radius-control, var(--control-radius, var(--input-radius, var(--rounded-input, var(--radius-2, var(--rounded, var(--border-radius, 0.375rem)))))));
+  --cp-btn-radius: var(--button-radius, var(--radius-button, var(--radius-2, var(--rounded, var(--border-radius, var(--radius-md, 0.375rem))))));
   --cp-radius-lg: var(--radius-card, var(--panel-radius, var(--dialog-radius, var(--radius-6, var(--rounded-md, 0.75rem)))));
   --cp-radius-pill: var(--chip-radius, 9999px);
+  /* Button variants — rest / hover / active, mapped to the set's button-* tokens
+     with generic fallbacks. Primary, secondary (= outline), tertiary (= ghost),
+     and skeleton are the real variants this contract defines. */
+  --cp-btn-primary-bg: var(--button-primary-bg, var(--primary, var(--color-primary, var(--button-bg, #111))));
+  --cp-btn-primary-bg-hover: var(--button-primary-bg-hover, var(--button-bg-hover, var(--color-primary-hover, var(--cp-btn-primary-bg))));
+  --cp-btn-primary-bg-active: var(--button-primary-bg-active, var(--button-bg-active, var(--color-primary-active, var(--cp-btn-primary-bg-hover))));
+  --cp-btn-primary-fg: var(--button-primary-text, var(--primary-foreground, var(--on-primary, var(--button-text, #fff))));
+  --cp-btn-secondary-bg: var(--button-secondary-bg, var(--secondary, var(--surface-raised, transparent)));
+  --cp-btn-secondary-bg-hover: var(--button-secondary-bg-hover, var(--color-primary-subtle, var(--cp-btn-secondary-bg)));
+  --cp-btn-secondary-bg-active: var(--button-secondary-bg-active, var(--cp-btn-secondary-bg-hover));
+  --cp-btn-secondary-fg: var(--button-secondary-text, var(--secondary-foreground, var(--text-link, var(--cp-fg))));
+  --cp-btn-secondary-border: var(--button-secondary-border, var(--cp-border));
+  --cp-btn-tertiary-bg: var(--button-tertiary-bg, transparent);
+  --cp-btn-tertiary-bg-hover: var(--button-tertiary-bg-hover, var(--color-primary-subtle, var(--surface-hover, var(--cp-surface))));
+  --cp-btn-tertiary-bg-active: var(--button-tertiary-bg-active, var(--cp-btn-tertiary-bg-hover));
+  --cp-btn-tertiary-fg: var(--button-tertiary-text, var(--text-link, var(--cp-secondary-fg)));
+  --cp-btn-skeleton-bg: var(--button-skeleton-bg, transparent);
+  --cp-btn-skeleton-bg-hover: var(--button-skeleton-bg-hover, var(--surface-subtle, var(--cp-surface)));
+  --cp-btn-skeleton-bg-active: var(--button-skeleton-bg-active, var(--cp-btn-skeleton-bg-hover));
+  --cp-btn-skeleton-fg: var(--button-skeleton-text, var(--text-link, var(--cp-secondary-fg)));
+  --cp-btn-skeleton-border: var(--button-skeleton-border, var(--cp-border));
+  --cp-btn-disabled-bg: var(--button-primary-disabled-bg, var(--surface-disabled, var(--cp-btn-primary-bg)));
+  --cp-btn-disabled-fg: var(--button-primary-disabled-text, var(--text-disabled, var(--cp-btn-primary-fg)));
   --cp-shadow-sm: var(--shadow-sm, var(--shadow-1, var(--shadow-low, var(--elevation-1, var(--shadow-xs, 0 1px 2px rgba(0, 0, 0, 0.08))))));
   --cp-shadow: var(--shadow-raised, var(--shadow-md, var(--shadow-2, var(--elevation-2, var(--shadow, 0 4px 12px rgba(0, 0, 0, 0.1))))));
   --cp-shadow-lg: var(--shadow-overlay, var(--shadow-lg, var(--shadow-high, var(--shadow-4, var(--elevation-4, var(--shadow-xl, 0 16px 40px rgba(0, 0, 0, 0.18)))))));
@@ -1861,17 +1886,31 @@ input[type="color"] {
   font-size: var(--button-font-size, var(--text-body-sm-size, 0.875rem));
   text-transform: var(--button-text-transform, none);
   padding: var(--cp-btn-py) var(--cp-btn-px);
-  border-radius: var(--cp-radius);
+  border-radius: var(--cp-btn-radius);
   border: 1px solid transparent;
   cursor: pointer;
   line-height: 1.2;
+  transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease;
 }
-.cp-btn--primary { background: var(--cp-primary); color: var(--cp-primary-fg); }
-.cp-btn--secondary { background: var(--cp-secondary); color: var(--cp-secondary-fg); border-color: var(--cp-secondary-border); }
-.cp-btn--outline { background: transparent; border-color: var(--cp-border); color: var(--cp-fg); }
-.cp-btn--ghost { background: transparent; color: var(--button-tertiary-text, var(--cp-secondary-fg)); }
-.cp-btn--destructive { background: var(--cp-danger); color: var(--cp-danger-fg); }
-.cp-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.cp-btn--primary { background: var(--cp-btn-primary-bg); color: var(--cp-btn-primary-fg); }
+.cp-btn--primary:hover { background: var(--cp-btn-primary-bg-hover); }
+.cp-btn--primary:active { background: var(--cp-btn-primary-bg-active); }
+
+.cp-btn--secondary { background: var(--cp-btn-secondary-bg); color: var(--cp-btn-secondary-fg); border-color: var(--cp-btn-secondary-border); }
+.cp-btn--secondary:hover { background: var(--cp-btn-secondary-bg-hover); }
+.cp-btn--secondary:active { background: var(--cp-btn-secondary-bg-active); }
+
+.cp-btn--tertiary { background: var(--cp-btn-tertiary-bg); color: var(--cp-btn-tertiary-fg); }
+.cp-btn--tertiary:hover { background: var(--cp-btn-tertiary-bg-hover); }
+.cp-btn--tertiary:active { background: var(--cp-btn-tertiary-bg-active); }
+
+.cp-btn--skeleton { background: var(--cp-btn-skeleton-bg); color: var(--cp-btn-skeleton-fg); border-color: var(--cp-btn-skeleton-border); border-style: dashed; }
+.cp-btn--skeleton:hover { background: var(--cp-btn-skeleton-bg-hover); }
+.cp-btn--skeleton:active { background: var(--cp-btn-skeleton-bg-active); }
+
+.cp-btn:disabled { cursor: not-allowed; opacity: 0.55; }
+.cp-btn--primary:disabled { background: var(--cp-btn-disabled-bg); color: var(--cp-btn-disabled-fg); opacity: 1; }
+.cp-hint { margin: 10px 0 0; font-size: 12px; color: var(--cp-muted); }
 
 /* badges */
 .cp-badge {
