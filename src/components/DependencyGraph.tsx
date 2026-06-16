@@ -2,33 +2,50 @@ import { useMemo, useState } from "react";
 import { useStore } from "../store";
 import { useNav } from "../nav";
 import { resolve } from "../lib/value";
-import { parseColor, toCssDisplay } from "../lib/color";
-import { tierOf, TIER_LABEL, type Tier } from "../lib/tiers";
+import { parseColor, toCssDisplay, rgbToOklab } from "../lib/color";
+import { tierMap, TIER_LABEL, type Tier } from "../lib/tiers";
 import type { Token } from "../types";
 
-const NODE_W = 196;
-const ROW_H = 34;
-const COL_GAP = 96;
+const NODE_W = 188;
+const COL_GAP = 110;
+const ROW_GAP = 12;
+const HEAD_H = 30;
+const SW = 13; // swatch size
+const SW_PER_ROW = 10;
 const PAD_TOP = 44;
-const PAD = 12;
+const PAD = 14;
 
 const TIER_ORDER: Tier[] = ["primitive", "semantic", "component"];
 
-interface Node {
-  token: Token;
-  tier: Tier;
-  col: number;
-  row: number;
-  x: number;
-  y: number;
-  swatch: string | null;
-  incoming: number;
-  dangling: boolean;
+// Two-segment prefixes that read better than their first segment alone.
+const COMPOUND = new Set(["side-nav", "hover-card", "action-link"]);
+
+/** The group a token belongs to within its tier (component, ramp family, concept). */
+function groupKeyOf(name: string): string {
+  const segs = name.split("-");
+  if (segs.length > 1 && COMPOUND.has(`${segs[0]}-${segs[1]}`)) return `${segs[0]}-${segs[1]}`;
+  return segs[0] || name;
 }
 
-interface Edge {
-  from: string;
-  to: string;
+interface GroupNode {
+  key: string; // `${tier}:${group}`
+  tier: Tier;
+  label: string;
+  tokens: Token[];
+  swatches: string[];
+  col: number;
+  x: number;
+  y: number;
+  h: number;
+  incoming: number;
+  outgoing: number;
+  hasDangling: boolean;
+}
+
+interface GroupEdge {
+  from: string; // consumer group key
+  to: string; // dependency group key
+  weight: number;
 }
 
 export function DependencyGraph() {
@@ -37,14 +54,13 @@ export function DependencyGraph() {
   const [onlyLinked, setOnlyLinked] = useState(true);
   const [hover, setHover] = useState<string | null>(null);
 
-  const { nodes, edges, width, height, unused, dangling } = useMemo(
+  const { nodes, edges, width, height, groupCount, danglingGroups } = useMemo(
     () => layout(tokens, byName, onlyLinked),
     [tokens, byName, onlyLinked],
   );
 
-  const nodeByName = useMemo(() => new Map(nodes.map((n) => [n.token.name, n])), [nodes]);
+  const nodeByKey = useMemo(() => new Map(nodes.map((n) => [n.key, n])), [nodes]);
 
-  // Which names are connected to the hovered node (incl. itself).
   const active = useMemo(() => {
     if (!hover) return null;
     const set = new Set<string>([hover]);
@@ -61,19 +77,22 @@ export function DependencyGraph() {
     <div>
       <div className="section-title">
         Dependency graph
-        <span className="count">({edges.length} links)</span>
+        <span className="count">({groupCount} groups · {edges.length} links)</span>
         <div className="spacer" />
-        {unused > 0 && <span className="pill warn-pill">{unused} unused primitive{unused === 1 ? "" : "s"}</span>}
-        {dangling > 0 && <span className="pill" style={{ borderColor: "rgba(255,107,107,.4)", color: "var(--danger)" }}>{dangling} dangling</span>}
+        {danglingGroups > 0 && (
+          <span className="pill" style={{ borderColor: "rgba(255,107,107,.4)", color: "var(--danger)" }}>
+            {danglingGroups} with broken refs
+          </span>
+        )}
         <label className="toggle">
           <input type="checkbox" checked={onlyLinked} onChange={(e) => setOnlyLinked(e.target.checked)} />
           Only linked
         </label>
       </div>
       <p className="hint">
-        Each token sits in its tier and arrows flow <b>left → right</b> from a token to the ones that
-        reference it (<b>primitive → semantic → component</b>). Hover to trace a token's links. Amber = a
-        primitive nothing references; red = an alias whose target is missing.
+        Tokens are grouped (components by component, primitives by ramp, semantics by concept). Arrows flow
+        <b> left → right</b> from a group to the groups that reference it (<b>primitive → semantic → component</b>);
+        thicker = more dependencies. Hover a group to trace it; click to open its tokens.
       </p>
 
       <div className="graph-scroll">
@@ -86,6 +105,7 @@ export function DependencyGraph() {
               <path d="M0,0 L10,5 L0,10 z" fill="var(--accent)" />
             </marker>
           </defs>
+
           {TIER_ORDER.filter((t) => nodes.some((n) => n.tier === t)).map((t) => {
             const col = nodes.find((n) => n.tier === t)!.col;
             return (
@@ -96,12 +116,11 @@ export function DependencyGraph() {
           })}
 
           {edges.map((e, i) => {
-            const from = nodeByName.get(e.from); // the alias (consumer)
-            const dep = nodeByName.get(e.to); // the token it references (dependency)
-            if (!from || !dep) return null;
-            // Draw left→right from the dependency to the consumer that uses it.
-            const s = { x: dep.x + NODE_W, y: dep.y + ROW_H / 2 };
-            const t = { x: from.x, y: from.y + ROW_H / 2 };
+            const dep = nodeByKey.get(e.to); // dependency (referenced)
+            const con = nodeByKey.get(e.from); // consumer (references it)
+            if (!dep || !con) return null;
+            const s = { x: dep.x + NODE_W, y: dep.y + dep.h / 2 };
+            const t = { x: con.x, y: con.y + con.h / 2 };
             const dim = active != null && !(active.has(e.from) && active.has(e.to));
             const on = active != null && !dim;
             const cx = COL_GAP * 0.5;
@@ -111,34 +130,51 @@ export function DependencyGraph() {
                 d={`M ${s.x} ${s.y} C ${s.x + cx} ${s.y} ${t.x - cx} ${t.y} ${t.x} ${t.y}`}
                 fill="none"
                 stroke={dim ? "var(--plot-line-dim)" : on ? "var(--accent)" : "var(--plot-line)"}
-                strokeWidth={on ? 1.8 : 1.4}
+                strokeWidth={(on ? 0.8 : 0.5) + Math.min(3.5, Math.sqrt(e.weight))}
+                opacity={dim ? 0.5 : 1}
                 markerEnd={dim ? undefined : on ? "url(#ts-arrow-on)" : "url(#ts-arrow)"}
               />
             );
           })}
 
           {nodes.map((n) => {
-            const dim = active != null && !active.has(n.token.name);
+            const dim = active != null && !active.has(n.key);
+            const extra = n.tokens.length - n.swatches.length;
             return (
               <g
-                key={n.token.id}
+                key={n.key}
                 transform={`translate(${n.x} ${n.y})`}
-                opacity={dim ? 0.25 : 1}
+                opacity={dim ? 0.28 : 1}
                 className="graph-node"
-                onMouseEnter={() => setHover(n.token.name)}
-                onMouseLeave={() => setHover((h) => (h === n.token.name ? null : h))}
-                onClick={() => navigate(n.swatch ? "palette" : "tokens", n.token.name)}
+                onMouseEnter={() => setHover(n.key)}
+                onMouseLeave={() => setHover((h) => (h === n.key ? null : h))}
+                onClick={() => navigate(n.swatches.length ? "palette" : "tokens", n.tokens[0]?.name)}
               >
-                <rect
-                  width={NODE_W}
-                  height={ROW_H}
-                  rx={7}
-                  className={`graph-rect ${n.dangling ? "dangling" : ""} ${n.tier === "primitive" && n.incoming === 0 ? "unused" : ""}`}
-                />
-                {n.swatch && <rect x={8} y={ROW_H / 2 - 7} width={14} height={14} rx={3} fill={n.swatch} stroke="var(--hairline)" />}
-                <text x={n.swatch ? 28 : 10} y={ROW_H / 2 + 4} className="graph-text">
-                  {clip(n.token.name, n.swatch ? 20 : 23)}
+                <title>{`${n.label} — ${n.tokens.length} token${n.tokens.length === 1 ? "" : "s"}${n.hasDangling ? "\n⚠ has a broken reference" : ""}\n${n.tokens.slice(0, 24).map((t) => "--" + t.name).join("\n")}${n.tokens.length > 24 ? "\n…" : ""}`}</title>
+                <rect width={NODE_W} height={n.h} rx={9} className={`graph-rect ${n.hasDangling ? "dangling" : ""} ${n.tier === "primitive" && n.incoming === 0 ? "unused" : ""}`} />
+                <text x={11} y={19} className="graph-text" style={{ fontWeight: 600 }}>
+                  {clip(n.label, 18)}
                 </text>
+                <text x={NODE_W - 11} y={19} textAnchor="end" className="graph-text" fill="var(--text-faint)">
+                  {n.tokens.length}
+                </text>
+                {n.swatches.map((c, i) => (
+                  <rect
+                    key={i}
+                    x={11 + (i % SW_PER_ROW) * (SW + 2)}
+                    y={HEAD_H + Math.floor(i / SW_PER_ROW) * (SW + 2)}
+                    width={SW}
+                    height={SW}
+                    rx={3}
+                    fill={c}
+                    stroke="var(--hairline)"
+                  />
+                ))}
+                {extra > 0 && n.swatches.length > 0 && (
+                  <text x={11 + (n.swatches.length % SW_PER_ROW) * (SW + 2) + 2} y={HEAD_H + Math.floor(n.swatches.length / SW_PER_ROW) * (SW + 2) + 11} className="graph-text" fill="var(--text-faint)" style={{ fontSize: 10 }}>
+                    +{extra}
+                  </text>
+                )}
               </g>
             );
           })}
@@ -152,56 +188,99 @@ function clip(s: string, n: number): string {
   return s.length > n ? s.slice(0, n - 1) + "…" : s;
 }
 
+const MAX_SWATCHES = 30;
+
 function layout(tokens: Token[], byName: Map<string, Token>, onlyLinked: boolean) {
-  const edgesAll: Edge[] = [];
+  const tiers = tierMap(tokens);
+  const keyOf = (name: string) => {
+    const t = tiers.get(name);
+    return t ? `${t}:${groupKeyOf(name)}` : null;
+  };
+
+  // Build groups.
+  const groups = new Map<string, GroupNode>();
+  const tokenColor = new Map<string, { css: string; L: number }>();
   for (const t of tokens) {
-    if (t.value.kind === "ref") edgesAll.push({ from: t.name, to: t.value.ref });
-  }
-  const linked = new Set<string>();
-  for (const e of edgesAll) {
-    linked.add(e.from);
-    if (byName.has(e.to)) linked.add(e.to);
+    const tier = tiers.get(t.name);
+    if (!tier) continue;
+    const key = `${tier}:${groupKeyOf(t.name)}`;
+    let g = groups.get(key);
+    if (!g) {
+      g = { key, tier, label: groupKeyOf(t.name), tokens: [], swatches: [], col: 0, x: 0, y: 0, h: 0, incoming: 0, outgoing: 0, hasDangling: false };
+      groups.set(key, g);
+    }
+    g.tokens.push(t);
+    if (t.category === "color") {
+      const rgb = parseColor(resolve(t, byName).finalRaw ?? "");
+      if (rgb) tokenColor.set(t.name, { css: toCssDisplay(rgb), L: rgbToOklab(rgb).L });
+    }
+    if (t.value.kind === "ref" && !byName.has(t.value.ref)) g.hasDangling = true;
   }
 
-  const visible = tokens.filter((t) => (onlyLinked ? linked.has(t.name) : true));
-  const incoming = new Map<string, number>();
-  for (const e of edgesAll) incoming.set(e.to, (incoming.get(e.to) ?? 0) + 1);
+  // Aggregate group→group edges.
+  const edgeMap = new Map<string, GroupEdge>();
+  for (const t of tokens) {
+    if (t.value.kind !== "ref") continue;
+    const from = keyOf(t.name);
+    const dep = byName.get(t.value.ref);
+    const to = dep ? keyOf(dep.name) : null;
+    if (!from || !to || from === to) continue;
+    const k = `${from}>${to}`;
+    const e = edgeMap.get(k);
+    if (e) e.weight++;
+    else edgeMap.set(k, { from, to, weight: 1 });
+  }
+  let edges = [...edgeMap.values()];
 
-  // Assign columns by tier; keep only tiers that have visible nodes.
-  const present = TIER_ORDER.filter((t) => visible.some((v) => tierOf(v, byName) === t));
+  // Degree counts.
+  for (const e of edges) {
+    const c = groups.get(e.from);
+    const d = groups.get(e.to);
+    if (c) c.outgoing += e.weight;
+    if (d) d.incoming += e.weight;
+  }
+
+  // Filter to linked groups if requested.
+  let nodes = [...groups.values()];
+  if (onlyLinked) {
+    const linked = new Set<string>();
+    for (const e of edges) { linked.add(e.from); linked.add(e.to); }
+    nodes = nodes.filter((n) => linked.has(n.key));
+    edges = edges.filter((e) => linked.has(e.from) && linked.has(e.to));
+  }
+
+  // Swatches per group (color tokens, light→dark), capped.
+  for (const n of nodes) {
+    const cols = n.tokens
+      .map((t) => tokenColor.get(t.name))
+      .filter((x): x is { css: string; L: number } => !!x)
+      .sort((a, b) => b.L - a.L)
+      .slice(0, MAX_SWATCHES)
+      .map((x) => x.css);
+    n.swatches = cols;
+    const swRows = cols.length ? Math.ceil(cols.length / SW_PER_ROW) : 0;
+    n.h = HEAD_H + (swRows ? swRows * (SW + 2) + 6 : 8);
+  }
+
+  // Columns by tier (only present tiers).
+  const present = TIER_ORDER.filter((t) => nodes.some((n) => n.tier === t));
   const colOf = new Map(present.map((t, i) => [t, i]));
 
-  const rows = new Map<Tier, number>();
-  const nodes: Node[] = [];
-  let unused = 0;
-  let danglingCount = 0;
-
-  for (const t of [...visible].sort((a, b) => a.name.localeCompare(b.name))) {
-    const tier = tierOf(t, byName);
-    const col = colOf.get(tier)!;
-    const row = rows.get(tier) ?? 0;
-    rows.set(tier, row + 1);
-    const rgb = parseColor(resolve(t, byName).finalRaw ?? "");
-    const dangling = t.value.kind === "ref" && !byName.has(t.value.ref);
-    if (dangling) danglingCount++;
-    const inc = incoming.get(t.name) ?? 0;
-    if (tier === "primitive" && inc === 0) unused++;
-    nodes.push({
-      token: t,
-      tier,
-      col,
-      row,
-      x: PAD + col * (NODE_W + COL_GAP),
-      y: PAD_TOP + row * ROW_H,
-      swatch: rgb ? toCssDisplay(rgb) : null,
-      incoming: inc,
-      dangling,
-    });
+  // Stack each column; bigger groups first so the eye lands on hubs.
+  const cursorY = new Map<Tier, number>();
+  for (const t of present) cursorY.set(t, PAD_TOP);
+  const order = [...nodes].sort((a, b) => b.tokens.length - a.tokens.length || a.label.localeCompare(b.label));
+  for (const n of order) {
+    n.col = colOf.get(n.tier)!;
+    n.x = PAD + n.col * (NODE_W + COL_GAP);
+    n.y = cursorY.get(n.tier)!;
+    cursorY.set(n.tier, n.y + n.h + ROW_GAP);
   }
 
-  const edges = edgesAll.filter((e) => byName.has(e.to) && nodes.some((n) => n.token.name === e.from) && nodes.some((n) => n.token.name === e.to));
-  const maxRows = Math.max(1, ...present.map((t) => rows.get(t) ?? 0));
+  const maxY = Math.max(PAD_TOP, ...present.map((t) => cursorY.get(t) ?? 0));
   const width = PAD * 2 + present.length * NODE_W + Math.max(0, present.length - 1) * COL_GAP;
-  const height = PAD_TOP + maxRows * ROW_H + PAD;
-  return { nodes, edges, width, height, unused, dangling: danglingCount };
+  const height = maxY + PAD;
+  const danglingGroups = nodes.filter((n) => n.hasDangling).length;
+
+  return { nodes, edges, width, height, groupCount: nodes.length, danglingGroups };
 }
