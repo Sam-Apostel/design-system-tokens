@@ -3,7 +3,7 @@ import { useStore } from "./store";
 import { NavProvider, type Tab } from "./nav";
 import { VisionProvider } from "./vision";
 import { GeneratorProvider, type GenRequest } from "./generator";
-import { CVD_OPTIONS, type CvdMode } from "./lib/cvd";
+import { CVD_OPTIONS, CVD_SIM_MODES, cvdMatrixValues, type CvdMode } from "./lib/cvd";
 import { lint } from "./lib/lint";
 import { tabForIssue } from "./lib/issueNav";
 import { shareUrl } from "./lib/permalink";
@@ -125,6 +125,15 @@ export default function App() {
     <NavProvider value={nav}>
      <VisionProvider value={vision}>
       <GeneratorProvider value={(req) => setGenerating(req ?? {})}>
+      <svg width="0" height="0" aria-hidden style={{ position: "absolute" }}>
+        <defs>
+          {CVD_SIM_MODES.map((m) => (
+            <filter key={m} id={`cvd-${m}`} colorInterpolationFilters="linearRGB">
+              <feColorMatrix type="matrix" values={cvdMatrixValues(m)} />
+            </filter>
+          ))}
+        </defs>
+      </svg>
       <div className="app">
         <div className="topbar">
           <div className="brand">
@@ -156,6 +165,17 @@ export default function App() {
           )}
 
           <div className="toolbar">
+            {vision !== "none" && (
+              <button
+                className="vision-chip"
+                title={`Simulating ${CVD_OPTIONS.find((o) => o.id === vision)?.label}. Click to turn off.`}
+                onClick={() => setVision("none")}
+              >
+                <span className="vision-eye" aria-hidden>◑</span>
+                {vision}
+                <span className="vision-x" aria-hidden>✕</span>
+              </button>
+            )}
             {!empty && modeList.length > 1 && (
               <div className="seg mode-switch" title="Theme mode">
                 {modeList.map((m) => (
@@ -238,16 +258,20 @@ export default function App() {
           </div>
         </div>
 
-        {empty ? (
-          <EmptyState onImport={() => setImporting(true)} onGenerate={() => setGenerating({})} onThemes={() => setThemesOpen(true)} />
-        ) : (
-          <Main
-            tab={tab}
-            onNewTypeStyle={() => setNewTypeStyle(true)}
-            onCreate={setCreateItem}
-            onOpenDocs={() => setDocsOpen(true)}
-          />
-        )}
+        {/* The simulated canvas: a CVD filter here re-tints every view (palette,
+            color space, components, contrast…) so the toggle is felt everywhere. */}
+        <div className="app-canvas" style={vision !== "none" ? { filter: `url(#cvd-${vision})` } : undefined}>
+          {empty ? (
+            <EmptyState onImport={() => setImporting(true)} onGenerate={() => setGenerating({})} onThemes={() => setThemesOpen(true)} />
+          ) : (
+            <Main
+              tab={tab}
+              onNewTypeStyle={() => setNewTypeStyle(true)}
+              onCreate={setCreateItem}
+              onOpenDocs={() => setDocsOpen(true)}
+            />
+          )}
+        </div>
 
         {themesOpen && <ThemeGallery onClose={() => setThemesOpen(false)} />}
         {importing && <ImportModal onClose={() => setImporting(false)} />}

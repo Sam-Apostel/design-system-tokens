@@ -3,8 +3,6 @@ import { useStore } from "../store";
 import { resolve } from "../lib/value";
 import { parseColor, toCssDisplay, contrastRatio, rateContrast, type RGB } from "../lib/color";
 import { semanticPairings } from "../lib/contrastAudit";
-import { useVision } from "../vision";
-import { simulateCvd } from "../lib/cvd";
 
 interface ColorEntry {
   name: string;
@@ -18,8 +16,7 @@ interface ColorEntry {
 export function ContrastView() {
   const { tokens, byName } = useStore();
   const [metric, setMetric] = useState<"wcag" | "apca">("wcag");
-  const vision = useVision();
-  const sim = (c: RGB) => toCssDisplay(simulateCvd(c, vision));
+  const sim = (c: RGB) => toCssDisplay(c);
 
   const semantic = useMemo(() => semanticPairings(tokens, byName), [tokens, byName]);
   const sortedPairs = useMemo(

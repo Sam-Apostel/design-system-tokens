@@ -20,6 +20,18 @@ const MATRICES: Record<Exclude<CvdMode, "none">, M> = {
   tritanopia: [1.255528, -0.076749, -0.178779, -0.078411, 0.930809, 0.147602, 0.004733, 0.691367, 0.3039],
 };
 
+export const CVD_SIM_MODES = ["protanopia", "deuteranopia", "tritanopia"] as const;
+
+/**
+ * The Machado matrix as an SVG feColorMatrix `values` string (4×5, row-major).
+ * SVG filters interpolate in linearRGB by default, matching simulateCvd — so a
+ * `filter: url(#cvd-…)` over the whole UI reproduces the same simulation.
+ */
+export function cvdMatrixValues(mode: Exclude<CvdMode, "none">): string {
+  const m = MATRICES[mode];
+  return `${m[0]} ${m[1]} ${m[2]} 0 0  ${m[3]} ${m[4]} ${m[5]} 0 0  ${m[6]} ${m[7]} ${m[8]} 0 0  0 0 0 1 0`;
+}
+
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 const toLinear = (c: number) => (c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
 const toGamma = (c: number) => (c <= 0.0031308 ? c * 12.92 : 1.055 * Math.pow(c, 1 / 2.4) - 0.055);

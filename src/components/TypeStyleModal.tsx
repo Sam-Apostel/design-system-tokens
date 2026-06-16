@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
 import { useStore } from "../store";
 import { useEscapeClose } from "../lib/useEscapeClose";
+import { resolve } from "../lib/value";
+import { parseColor, toHex } from "../lib/color";
 
 interface FieldDef {
   key: keyof Fields;
@@ -15,6 +17,7 @@ interface Fields {
   weight: string;
   lineHeight: string;
   letterSpacing: string;
+  color: string;
 }
 
 const FIELDS: FieldDef[] = [
@@ -33,7 +36,7 @@ const SAMPLE = "The quick brown fox jumps over the lazy dog";
  * Only filled fields become tokens.
  */
 export function TypeStyleModal({ onClose }: { onClose: () => void }) {
-  const { tokens, dispatch } = useStore();
+  const { tokens, byName, dispatch } = useStore();
   useEscapeClose(onClose);
   const [name, setName] = useState("text-heading");
   const [fields, setFields] = useState<Fields>({
@@ -42,15 +45,36 @@ export function TypeStyleModal({ onClose }: { onClose: () => void }) {
     weight: "700",
     lineHeight: "1.2",
     letterSpacing: "",
+    color: "",
   });
 
   const set = (k: keyof Fields, v: string) => setFields((f) => ({ ...f, [k]: v }));
 
+  // Existing color tokens, offered as alias targets for the text color.
+  const colorTokens = useMemo(() => tokens.filter((t) => t.category === "color"), [tokens]);
+
+  // Resolve the chosen color (var(--token) or literal) to a hex for the preview.
+  const previewColor = useMemo(() => {
+    const v = fields.color.trim();
+    if (!v) return undefined;
+    const m = v.match(/^var\(\s*--([A-Za-z0-9-_]+)\s*\)$/);
+    if (m) {
+      const t = byName.get(m[1]);
+      const raw = t ? resolve(t, byName).finalRaw : null;
+      return raw ?? undefined;
+    }
+    return v;
+  }, [fields.color, byName]);
+  const previewHex = previewColor ? parseColor(previewColor) : null;
+
   const cleanName = name.trim().replace(/^--/, "").replace(/\s+/g, "-");
-  const planned = FIELDS.filter((f) => fields[f.key].trim()).map((f) => ({
-    name: `${cleanName}-${f.suffix}`,
-    value: fields[f.key].trim(),
-  }));
+  const planned = [
+    ...FIELDS.filter((f) => fields[f.key].trim()).map((f) => ({
+      name: `${cleanName}-${f.suffix}`,
+      value: fields[f.key].trim(),
+    })),
+    ...(fields.color.trim() ? [{ name: `${cleanName}-color`, value: fields.color.trim() }] : []),
+  ];
 
   const collision = useMemo(() => {
     const existing = new Set(tokens.map((t) => t.name));
@@ -63,6 +87,7 @@ export function TypeStyleModal({ onClose }: { onClose: () => void }) {
     fontWeight: fields.weight ? Number(fields.weight) || undefined : undefined,
     lineHeight: fields.lineHeight || undefined,
     letterSpacing: fields.letterSpacing || undefined,
+    color: previewColor || undefined,
   };
 
   const canCreate = cleanName.length > 0 && planned.length > 0 && collision.length === 0;
@@ -111,6 +136,41 @@ export function TypeStyleModal({ onClose }: { onClose: () => void }) {
                 />
               </div>
             ))}
+
+            <div className="field" style={{ gridColumn: "1 / -1" }}>
+              <label>Text color</label>
+              <div className="link-row">
+                <select
+                  className="text-input"
+                  value={colorTokens.some((t) => `var(--${t.name})` === fields.color) ? fields.color : ""}
+                  onChange={(e) => set("color", e.target.value)}
+                  title="Reference an existing color token (recommended)"
+                >
+                  <option value="">— alias a color token —</option>
+                  {colorTokens.map((t) => (
+                    <option key={t.id} value={`var(--${t.name})`}>--{t.name}</option>
+                  ))}
+                </select>
+                <input
+                  type="color"
+                  aria-label="Pick a literal color"
+                  value={previewHex ? toHex({ ...previewHex, a: 1 }) : "#111111"}
+                  onChange={(e) => set("color", e.target.value)}
+                />
+                <input
+                  className="text-input"
+                  style={{ flex: 1 }}
+                  value={fields.color}
+                  placeholder="var(--color-text) or #111827"
+                  spellCheck={false}
+                  onChange={(e) => set("color", e.target.value)}
+                />
+              </div>
+              <p className="hint" style={{ margin: "4px 0 0" }}>
+                Optional. Alias a semantic color (so it follows theme/mode) or set a literal — emits{" "}
+                <span className="mono">--{cleanName || "text-heading"}-color</span>.
+              </p>
+            </div>
           </div>
 
           {collision.length > 0 && (

@@ -26,6 +26,7 @@ const PROP_LABEL: Record<Prop, string> = {
 const STOP = new Set([
   "font", "text", "type", "typography", "size", "weight", "line", "height",
   "lineheight", "leading", "letter", "spacing", "tracking", "family", "face",
+  "color", "colour", "fill", "ink",
 ]);
 
 function propOf(name: string, value: string | null): Prop {
@@ -76,6 +77,19 @@ export function TypographyView({ onNewStyle }: { onNewStyle?: () => void }) {
       .sort((a, b) => a.key.localeCompare(b.key));
   }, [typo]);
 
+  // A type style can carry a text color: a color token named "<style>-color".
+  // It's categorized as a color, so we attach it to the style by its key here.
+  const styleColors = useMemo(() => {
+    const m = new Map<string, { token: Token; raw: string | null }>();
+    for (const t of tokens) {
+      if (t.category !== "color") continue;
+      if (!/-(color|colour|fill|ink)$/i.test(t.name)) continue;
+      const key = styleKeyOf(t.name);
+      if (key) m.set(key, { token: t, raw: resolve(t, byName).finalRaw });
+    }
+    return m;
+  }, [tokens, byName]);
+
   const compositeIds = new Set(composites.flatMap((g) => g.list.map((t) => t.token.id)));
   const ramps = useMemo(() => {
     const m = new Map<Prop, TypoToken[]>();
@@ -125,19 +139,21 @@ export function TypographyView({ onNewStyle }: { onNewStyle?: () => void }) {
           <div className="type-card-grid">
             {composites.map((g) => {
               const find = (p: Prop) => g.list.find((t) => t.prop === p)?.raw ?? undefined;
+              const colorTok = styleColors.get(g.key);
               const style: React.CSSProperties = {
                 fontFamily: find("family") ?? defaultFamily,
                 fontSize: find("size"),
                 fontWeight: find("weight") ? Number(find("weight")) : undefined,
                 lineHeight: find("line"),
                 letterSpacing: find("tracking"),
+                color: colorTok?.raw ?? undefined,
               };
               return (
                 <div className="type-card" key={g.key}>
                   <div className="type-card-head">
                     <span className="mono">{g.key}</span>
                     <span className="faint mono">
-                      {g.list.map((t) => t.prop).join(" · ")}
+                      {g.list.map((t) => t.prop).join(" · ")}{colorTok ? " · color" : ""}
                     </span>
                   </div>
                   <div className="type-card-sample" style={style}>
@@ -156,6 +172,19 @@ export function TypographyView({ onNewStyle }: { onNewStyle?: () => void }) {
                         )}
                       </button>
                     ))}
+                    {colorTok && (
+                      <button
+                        className="chip-btn mono"
+                        onClick={() => navigate("tokens", colorTok.token.name)}
+                        title="Text color for this style"
+                      >
+                        <span className="mini-swatch" style={{ background: colorTok.raw ?? "transparent" }} />
+                        --{colorTok.token.name}: {colorTok.token.value.kind === "ref" ? `→ ${colorTok.token.value.ref}` : colorTok.raw}
+                        {issues.get(colorTok.token.name) && (
+                          <span className={`issue-dot ${issues.get(colorTok.token.name)}`} />
+                        )}
+                      </button>
+                    )}
                   </div>
                 </div>
               );

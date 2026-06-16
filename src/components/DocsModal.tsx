@@ -66,6 +66,34 @@ export function DocsModal({ onClose }: { onClose: () => void }) {
             aliasing the primitives your designer already provided.
           </p>
 
+          <h4>Typography</h4>
+          <p>
+            Type uses the same tiers. <b>Primitives</b> are the raw scales — font families, a modular
+            size scale, weights, line-heights and tracking. Describe values, not roles.
+          </p>
+          <pre className="code-block">{`--font-family-sans: "Inter", system-ui, sans-serif;
+--font-size-sm: 14px;   --font-size-md: 16px;
+--font-size-lg: 20px;   --font-size-xl: 28px;
+--font-weight-regular: 400;  --font-weight-bold: 700;
+--line-height-tight: 1.2;    --line-height-normal: 1.5;`}</pre>
+          <p>
+            A <b>text style</b> is a semantic group: several tokens sharing a name prefix
+            (<span className="mono">text-heading-*</span>) that together define one role — size, weight,
+            line-height, tracking and an optional <b>color</b>. Alias the size/weight to primitives so the
+            scale stays consistent, and alias the <span className="mono">-color</span> to a semantic color
+            (e.g. <span className="mono">--text</span>) so it follows theme &amp; mode.
+          </p>
+          <pre className="code-block">{`--text-heading-font-size: var(--font-size-xl);
+--text-heading-font-weight: var(--font-weight-bold);
+--text-heading-line-height: var(--line-height-tight);
+--text-heading-letter-spacing: -0.02em;
+--text-heading-color: var(--text);`}</pre>
+          <p className="hint">
+            The <b>Typography</b> tab previews every style live; <b>+ New text style</b> scaffolds one of
+            these grouped sets for you — including the optional text color, which you can alias to a color
+            token so it tracks your theme.
+          </p>
+
           <h4>Theme Token Studio with your own tokens</h4>
           <p>
             Token Studio reads a small <b>theming contract</b> — if your set defines these semantic color

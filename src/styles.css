@@ -175,6 +175,13 @@ select {
   font-size: 12px;
 }
 
+.app-canvas {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
 .content {
   flex: 1;
   overflow: auto;
@@ -1494,6 +1501,32 @@ input[type="color"] {
 }
 .pairing-tag.fail {
   color: var(--danger);
+}
+
+.vision-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-transform: capitalize;
+  background: color-mix(in oklab, var(--warning), transparent 84%);
+  border: 1px solid color-mix(in oklab, var(--warning), transparent 50%);
+  color: var(--warning);
+  border-radius: 20px;
+  padding: 5px 11px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.vision-chip:hover {
+  background: color-mix(in oklab, var(--warning), transparent 74%);
+}
+.vision-eye {
+  font-size: 13px;
+  line-height: 1;
+}
+.vision-x {
+  opacity: 0.65;
+  font-size: 10px;
 }
 
 .vision-select {
