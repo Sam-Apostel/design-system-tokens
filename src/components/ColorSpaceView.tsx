@@ -86,7 +86,7 @@ function computeBounds(items: PlotItem[], mode: PlotMode, fit: boolean): Bounds 
     // Uniform scale so hue angles & chroma stay undistorted.
     const cx = (minX + maxX) / 2;
     const cy = (minY + maxY) / 2;
-    const half = Math.max((maxX - minX) / 2, (maxY - minY) / 2, 0.02) * 1.18;
+    const half = Math.max((maxX - minX) / 2, (maxY - minY) / 2, 0.02) * 1.24;
     return { minX: cx - half, maxX: cx + half, minY: cy - half, maxY: cy + half };
   }
   const padX = Math.max((maxX - minX) * 0.12, mode === "LH" ? 6 : 0.03);

@@ -168,7 +168,7 @@ function layout(tokens: Token[], byName: Map<string, Token>, onlyLinked: boolean
   for (const e of edgesAll) incoming.set(e.to, (incoming.get(e.to) ?? 0) + 1);
 
   // Assign columns by tier; keep only tiers that have visible nodes.
-  const present = TIER_ORDER.filter((t) => visible.some((v) => tierOf(v) === t));
+  const present = TIER_ORDER.filter((t) => visible.some((v) => tierOf(v, byName) === t));
   const colOf = new Map(present.map((t, i) => [t, i]));
 
   const rows = new Map<Tier, number>();
@@ -177,7 +177,7 @@ function layout(tokens: Token[], byName: Map<string, Token>, onlyLinked: boolean
   let danglingCount = 0;
 
   for (const t of [...visible].sort((a, b) => a.name.localeCompare(b.name))) {
-    const tier = tierOf(t);
+    const tier = tierOf(t, byName);
     const col = colOf.get(tier)!;
     const row = rows.get(tier) ?? 0;
     rows.set(tier, row + 1);

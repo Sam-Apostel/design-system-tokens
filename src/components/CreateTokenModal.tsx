@@ -38,11 +38,11 @@ export function CreateTokenModal({
       list = r.length ? r : tokens.filter((t) => t.category === "spacing");
     } else if (kind === "spacing") list = tokens.filter((t) => t.category === "spacing");
     return [...list].sort((a, b) => {
-      const ta = tierOf(a) === "primitive" ? 0 : 1;
-      const tb = tierOf(b) === "primitive" ? 0 : 1;
+      const ta = tierOf(a, byName) === "primitive" ? 0 : 1;
+      const tb = tierOf(b, byName) === "primitive" ? 0 : 1;
       return ta - tb || a.name.localeCompare(b.name);
     });
-  }, [tokens, kind]);
+  }, [tokens, kind, byName]);
 
   const [source, setSource] = useState(candidates[0]?.name ?? "");
 
@@ -98,7 +98,7 @@ export function CreateTokenModal({
                 <select className="text-input" value={source} onChange={(e) => setSource(e.target.value)}>
                   {candidates.map((t) => (
                     <option key={t.id} value={t.name}>
-                      --{t.name} {tierOf(t) === "primitive" ? "" : `(${tierOf(t)})`}
+                      --{t.name} {tierOf(t, byName) === "primitive" ? "" : `(${tierOf(t, byName)})`}
                     </option>
                   ))}
                 </select>

@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useStore } from "../store";
 import { useNav } from "../nav";
-import { countByTier, tierOf, TIER_LABEL, TIER_BLURB, TIERS, type Tier } from "../lib/tiers";
+import { countByTier, tierMap, TIER_LABEL, TIER_BLURB, TIERS, type Tier } from "../lib/tiers";
 import { coverageByGroup, type RecItem } from "../lib/recommendations";
 import { resolve } from "../lib/value";
 import { parseColor, toCssDisplay } from "../lib/color";
@@ -19,9 +19,10 @@ export function SemanticsView({
   const counts = useMemo(() => countByTier(tokens), [tokens]);
   const groups = useMemo(() => coverageByGroup(tokens), [tokens]);
   const examples = useMemo(() => {
+    const tiers = tierMap(tokens);
     const m: Record<Tier, string[]> = { primitive: [], semantic: [], component: [] };
     for (const t of tokens) {
-      const tier = tierOf(t);
+      const tier = tiers.get(t.name) ?? "semantic";
       if (m[tier].length < 6) m[tier].push(t.name);
     }
     return m;

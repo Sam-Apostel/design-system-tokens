@@ -13,9 +13,16 @@ export function usedBySemanticLayer(tokens: Token[]): Set<string> {
   const byName = indexByName(tokens);
   const used = new Set<string>();
   for (const t of tokens) {
-    if (t.value.kind !== "ref") continue;
-    const r = resolve(t, byName);
-    for (const name of r.chain) used.add(name);
+    if (t.value.kind === "ref") {
+      const r = resolve(t, byName);
+      for (const name of r.chain) used.add(name);
+    }
+    // Also count refs nested inside function values (e.g. color-mix(var(--info)…)).
+    if (t.value.kind === "raw" && t.value.raw.includes("var(")) {
+      const re = /var\(\s*--([A-Za-z0-9-_]+)/g;
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(t.value.raw)) !== null) used.add(m[1]);
+    }
   }
   return used;
 }

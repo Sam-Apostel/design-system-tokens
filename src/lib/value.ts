@@ -22,6 +22,29 @@ export function valueToText(value: TokenValue): string {
 }
 
 /**
+ * Substitute every `var(--x)` inside a literal value with x's own resolved
+ * literal — including refs nested inside functions like `color-mix(…)` or
+ * `light-dark(…)` that the top-level alias chain doesn't follow. This is what
+ * lets such composite colors resolve to a concrete value for plotting/theming.
+ * Best-effort and cycle-safe (bounded iterations).
+ */
+export function substituteRefs(raw: string, byName: Map<string, Token>): string {
+  if (!raw.includes("var(")) return raw;
+  let s = raw;
+  for (let i = 0; i < 30; i++) {
+    let changed = false;
+    s = s.replace(/var\(\s*--([A-Za-z0-9-_]+)\s*(?:,\s*([^()]*?))?\)/g, (_m, name: string, fb?: string) => {
+      const t = byName.get(name);
+      if (!t) return fb != null && fb.trim() ? (changed = true, fb.trim()) : `var(--${name})`;
+      changed = true;
+      return valueToCss(t.value);
+    });
+    if (!changed) break;
+  }
+  return s;
+}
+
+/**
  * Resolve a token's final literal value by following alias chains.
  * Detects cycles and missing references.
  */
@@ -43,9 +66,12 @@ export function resolve(token: Token, byName: Map<string, Token>): ResolvedToken
     }
   }
 
+  const lit = current ? (current.value as { raw: string }).raw : null;
   return {
     token,
-    finalRaw: current ? (current.value as { raw: string }).raw : null,
+    // Deep-substitute nested var() so composite values (color-mix, light-dark)
+    // resolve to concrete literals downstream consumers can parse.
+    finalRaw: lit != null ? substituteRefs(lit, byName) : null,
     chain,
     broken: false,
   };

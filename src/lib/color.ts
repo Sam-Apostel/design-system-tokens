@@ -153,12 +153,87 @@ export function splitTopLevelCommas(inner: string): string[] {
   return out;
 }
 
+/**
+ * Mix two colors by weight `w1` (c2 gets `1 - w1`) in the given interpolation
+ * space, mirroring CSS `color-mix()`. Defaults to sRGB.
+ */
+export function mixColors(c1: RGB, c2: RGB, w1: number, space = "srgb"): RGB {
+  const w = clamp01(w1);
+  const t = 1 - w;
+  const a = c1.a * w + c2.a * t;
+  const lerp = (x: number, y: number) => x * w + y * t;
+  const lerpHue = (h1: number, h2: number) => {
+    let d = (((h2 - h1) % 360) + 360) % 360;
+    if (d > 180) d -= 360;
+    return (((h1 + d * t) % 360) + 360) % 360; // t is c2's weight
+  };
+  const sp = space.toLowerCase();
+  if (sp === "srgb-linear") {
+    return { r: toGamma(lerp(toLinear(c1.r), toLinear(c2.r))), g: toGamma(lerp(toLinear(c1.g), toLinear(c2.g))), b: toGamma(lerp(toLinear(c1.b), toLinear(c2.b))), a };
+  }
+  if (sp === "hsl") {
+    const A = rgbToHsl(c1), B = rgbToHsl(c2);
+    return { ...hslToRgb(lerpHue(A.h, B.h), lerp(A.s, B.s), lerp(A.l, B.l)), a };
+  }
+  if (sp === "oklab") {
+    const A = rgbToOklab(c1), B = rgbToOklab(c2);
+    return { ...oklabToRgb(lerp(A.L, B.L), lerp(A.a, B.a), lerp(A.b, B.b)), a };
+  }
+  if (sp === "oklch") {
+    const A = rgbToOklch(c1), B = rgbToOklch(c2);
+    return { ...oklchToRgb(lerp(A.L, B.L), lerp(A.C, B.C), lerpHue(A.h, B.h)), a };
+  }
+  if (sp === "lab" || sp === "cielab") {
+    const A = rgbToLab(c1), B = rgbToLab(c2);
+    return { ...labToRgb(lerp(A.L, B.L), lerp(A.a, B.a), lerp(A.b, B.b)), a };
+  }
+  if (sp === "lch" || sp === "cielch") {
+    const A = rgbToLab(c1), B = rgbToLab(c2);
+    const cA = Math.hypot(A.a, A.b), hA = (Math.atan2(A.b, A.a) * 180) / Math.PI;
+    const cB = Math.hypot(B.a, B.b), hB = (Math.atan2(B.b, B.a) * 180) / Math.PI;
+    const L = lerp(A.L, B.L), C = lerp(cA, cB), h = (lerpHue(hA, hB) * Math.PI) / 180;
+    return { ...labToRgb(L, C * Math.cos(h), C * Math.sin(h)), a };
+  }
+  // default: sRGB (gamma)
+  return { r: lerp(c1.r, c2.r), g: lerp(c1.g, c2.g), b: lerp(c1.b, c2.b), a };
+}
+
+/** Substitute for `currentColor` when a concrete color is needed for plotting. */
+const CURRENT_COLOR_FALLBACK: RGB = { r: 0.5, g: 0.5, b: 0.5, a: 1 };
+
+/** Parse `color-mix(in <space>, C1 [p1%], C2 [p2%])`; operands must be literal. */
+function parseColorMix(input: string): RGB | null {
+  const m = input.match(/^color-mix\(\s*in\s+([a-z0-9-]+)\s*,\s*([\s\S]+)\)$/i);
+  if (!m) return null;
+  const space = m[1];
+  const parts = splitTopLevelCommas(m[2]);
+  if (parts.length !== 2) return null;
+  const parseOperand = (raw: string): { rgb: RGB; pct?: number } | null => {
+    const pm = raw.trim().match(/^([\s\S]*?)\s+([\d.]+)%\s*$/);
+    const colorStr = (pm ? pm[1] : raw).trim();
+    const pct = pm ? parseFloat(pm[2]) : undefined;
+    const rgb = /^currentcolor$/i.test(colorStr) ? CURRENT_COLOR_FALLBACK : parseColor(colorStr);
+    return rgb ? { rgb, pct } : null;
+  };
+  const a = parseOperand(parts[0]);
+  const b = parseOperand(parts[1]);
+  if (!a || !b) return null;
+  // Resolve weights: missing percentages fill in to sum to 100.
+  let w1 = a.pct, w2 = b.pct;
+  if (w1 == null && w2 == null) { w1 = 50; w2 = 50; }
+  else if (w1 == null) w1 = 100 - (w2 as number);
+  else if (w2 == null) w2 = 100 - w1;
+  const sum = (w1 as number) + (w2 as number) || 1;
+  return mixColors(a.rgb, b.rgb, (w1 as number) / sum, space);
+}
+
 /** Parse any supported CSS color string into sRGB, or null if not a color. */
 export function parseColor(input: string): RGB | null {
   if (!input) return null;
   const v = input.trim().toLowerCase();
   if (v in NAMED) return parseHex(NAMED[v]);
   if (v.startsWith("#")) return parseHex(v);
+  if (v.startsWith("color-mix(")) return parseColorMix(v);
   if (v.startsWith("light-dark(")) {
     // Render the light (first) argument; per-mode display is handled upstream.
     const m = v.match(/^light-dark\(([\s\S]*)\)$/);

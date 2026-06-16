@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useStore } from "../store";
 import { useNav } from "../nav";
 import { resolve } from "../lib/value";
@@ -48,10 +48,24 @@ function styleKeyOf(name: string): string {
 
 const SAMPLE = "The quick brown fox jumps over the lazy dog";
 
+/** First family in a font stack, for a compact label. */
+function shortFamily(stack?: string): string {
+  if (!stack) return "";
+  const first = stack.split(",")[0].trim().replace(/^['"]|['"]$/g, "");
+  return first || "";
+}
+
 export function TypographyView({ onNewStyle }: { onNewStyle?: () => void }) {
   const { tokens, byName } = useStore();
   const { navigate } = useNav();
   const issues = useMemo(() => issuesByToken(lint(tokens)), [tokens]);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const toggle = (key: string) =>
+    setExpanded((s) => {
+      const n = new Set(s);
+      n.has(key) ? n.delete(key) : n.add(key);
+      return n;
+    });
 
   const typo = useMemo<TypoToken[]>(
     () =>
@@ -135,8 +149,11 @@ export function TypographyView({ onNewStyle }: { onNewStyle?: () => void }) {
         <>
           <div className="section-title" style={{ marginTop: 4 }}>
             Text styles <span className="count">({composites.length})</span>
+            <span className="faint" style={{ fontSize: 11, textTransform: "none", letterSpacing: 0 }}>
+              click a row for its tokens
+            </span>
           </div>
-          <div className="type-card-grid">
+          <div className="type-style-list">
             {composites.map((g) => {
               const find = (p: Prop) => g.list.find((t) => t.prop === p)?.raw ?? undefined;
               const colorTok = styleColors.get(g.key);
@@ -148,44 +165,38 @@ export function TypographyView({ onNewStyle }: { onNewStyle?: () => void }) {
                 letterSpacing: find("tracking"),
                 color: colorTok?.raw ?? undefined,
               };
+              const tracking = find("tracking");
+              const specs = [find("size"), find("weight"), find("line"), tracking && tracking !== "0" && tracking !== "0rem" ? tracking : null, shortFamily(find("family") ?? defaultFamily)].filter(Boolean);
+              const open = expanded.has(g.key);
+              const allTokens = colorTok ? [...g.list.map((t) => ({ name: t.token.name, raw: t.raw, isRef: t.token.value.kind === "ref", ref: t.token.value.kind === "ref" ? t.token.value.ref : null, swatch: false })), { name: colorTok.token.name, raw: colorTok.raw, isRef: colorTok.token.value.kind === "ref", ref: colorTok.token.value.kind === "ref" ? colorTok.token.value.ref : null, swatch: true }] : g.list.map((t) => ({ name: t.token.name, raw: t.raw, isRef: t.token.value.kind === "ref", ref: t.token.value.kind === "ref" ? t.token.value.ref : null, swatch: false }));
+              const sev = allTokens.map((t) => issues.get(t.name)).find(Boolean);
               return (
-                <div className="type-card" key={g.key}>
-                  <div className="type-card-head">
-                    <span className="mono">{g.key}</span>
-                    <span className="faint mono">
-                      {g.list.map((t) => t.prop).join(" · ")}{colorTok ? " · color" : ""}
+                <div className="type-style" key={g.key}>
+                  <button className="type-style-row" onClick={() => toggle(g.key)} aria-expanded={open}>
+                    <span className="type-style-head">
+                      <span className="type-style-name mono">
+                        {g.key}
+                        {sev && <span className={`issue-dot ${sev}`} />}
+                      </span>
+                      <span className="type-style-specs mono faint">
+                        {colorTok && <span className="mini-swatch" style={{ background: colorTok.raw ?? "transparent" }} />}
+                        {specs.join(" · ")}
+                      </span>
                     </span>
-                  </div>
-                  <div className="type-card-sample" style={style}>
-                    {SAMPLE}
-                  </div>
-                  <div className="type-card-tokens">
-                    {g.list.map((t) => (
-                      <button
-                        key={t.token.id}
-                        className="chip-btn mono"
-                        onClick={() => navigate("tokens", t.token.name)}
-                      >
-                        --{t.token.name}: {t.raw}
-                        {issues.get(t.token.name) && (
-                          <span className={`issue-dot ${issues.get(t.token.name)}`} />
-                        )}
-                      </button>
-                    ))}
-                    {colorTok && (
-                      <button
-                        className="chip-btn mono"
-                        onClick={() => navigate("tokens", colorTok.token.name)}
-                        title="Text color for this style"
-                      >
-                        <span className="mini-swatch" style={{ background: colorTok.raw ?? "transparent" }} />
-                        --{colorTok.token.name}: {colorTok.token.value.kind === "ref" ? `→ ${colorTok.token.value.ref}` : colorTok.raw}
-                        {issues.get(colorTok.token.name) && (
-                          <span className={`issue-dot ${issues.get(colorTok.token.name)}`} />
-                        )}
-                      </button>
-                    )}
-                  </div>
+                    <span className="type-style-sample" style={style}>{SAMPLE}</span>
+                    <span className="type-style-caret">{open ? "▾" : "▸"}</span>
+                  </button>
+                  {open && (
+                    <div className="type-card-tokens" style={{ padding: "0 14px 12px" }}>
+                      {allTokens.map((t) => (
+                        <button key={t.name} className="chip-btn mono" onClick={() => navigate("tokens", t.name)}>
+                          {t.swatch && <span className="mini-swatch" style={{ background: t.raw ?? "transparent" }} />}
+                          --{t.name}: {t.isRef ? `→ ${t.ref}` : t.raw}
+                          {issues.get(t.name) && <span className={`issue-dot ${issues.get(t.name)}`} />}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               );
             })}
