@@ -20,7 +20,7 @@ type Kind = "color" | "spacing" | "type";
  * Color ramps are computed in OKLCH for perceptual evenness; spacing/type use
  * modular or linear progressions. The live preview is the generated tokens.
  */
-export function GeneratorModal({ onClose, initialKind = "color" }: { onClose: () => void; initialKind?: Kind }) {
+export function GeneratorModal({ onClose, initialKind = "color", initialSeed }: { onClose: () => void; initialKind?: Kind; initialSeed?: string }) {
   const { tokens, dispatch } = useStore();
   const [kind, setKind] = useState<Kind>(initialKind);
   useEscapeClose(onClose);
@@ -40,6 +40,7 @@ export function GeneratorModal({ onClose, initialKind = "color" }: { onClose: ()
         {kind === "color" ? (
           <ColorRampForm
             existing={new Set(tokens.map((t) => t.name))}
+            initialSeed={initialSeed}
             onCancel={onClose}
             onAdd={(items) => { dispatch({ type: "addMany", items }); onClose(); }}
           />
@@ -58,9 +59,10 @@ export function GeneratorModal({ onClose, initialKind = "color" }: { onClose: ()
 
 /* ------------------------------- color ramp ------------------------------- */
 
-function ColorRampForm({ existing, onAdd, onCancel }: { existing: Set<string>; onAdd: (items: { name: string; raw: string }[]) => void; onCancel: () => void }) {
-  const [seed, setSeed] = useState("#3b82f6");
-  const [prefix, setPrefix] = useState(() => suggestRampPrefix("#3b82f6"));
+function ColorRampForm({ existing, onAdd, onCancel, initialSeed }: { existing: Set<string>; onAdd: (items: { name: string; raw: string }[]) => void; onCancel: () => void; initialSeed?: string }) {
+  const seed0 = initialSeed && parseColor(initialSeed) ? initialSeed : "#3b82f6";
+  const [seed, setSeed] = useState(seed0);
+  const [prefix, setPrefix] = useState(() => suggestRampPrefix(seed0));
   const [prefixTouched, setPrefixTouched] = useState(false);
   const [steps, setSteps] = useState(10);
   const [chromaMult, setChromaMult] = useState(1);

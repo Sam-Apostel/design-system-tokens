@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useStore } from "./store";
 import { NavProvider, type Tab } from "./nav";
 import { VisionProvider } from "./vision";
+import { GeneratorProvider, type GenRequest } from "./generator";
 import { CVD_OPTIONS, type CvdMode } from "./lib/cvd";
 import { lint } from "./lib/lint";
 import { tabForIssue } from "./lib/issueNav";
@@ -46,7 +47,7 @@ export default function App() {
   const [importing, setImporting] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [newTypeStyle, setNewTypeStyle] = useState(false);
-  const [generating, setGenerating] = useState(false);
+  const [generating, setGenerating] = useState<GenRequest | null>(null);
   const [docsOpen, setDocsOpen] = useState(false);
   const [createItem, setCreateItem] = useState<RecItem | null>(null);
   const [shared, setShared] = useState(false);
@@ -121,6 +122,7 @@ export default function App() {
   return (
     <NavProvider value={nav}>
      <VisionProvider value={vision}>
+      <GeneratorProvider value={(req) => setGenerating(req ?? {})}>
       <div className="app">
         <div className="topbar">
           <div className="brand">
@@ -180,7 +182,7 @@ export default function App() {
                   <div className="tb-menu-backdrop" onClick={closeMenu} />
                   <div className="tb-menu-panel" role="menu">
                     <button className="tb-item" onClick={() => { setImporting(true); closeMenu(); }}>Import…</button>
-                    <button className="tb-item" onClick={() => { setGenerating(true); closeMenu(); }}>Generate a scale…</button>
+                    <button className="tb-item" onClick={() => { setGenerating({}); closeMenu(); }}>Generate a scale…</button>
                     {!empty && <button className="tb-item" onClick={() => { share(); closeMenu(); }}>{shared ? "Link copied ✓" : "Share link"}</button>}
                     <button className="tb-item" onClick={() => { setDocsOpen(true); closeMenu(); }}>Token guide</button>
 
@@ -234,7 +236,7 @@ export default function App() {
         </div>
 
         {empty ? (
-          <EmptyState onImport={() => setImporting(true)} onGenerate={() => setGenerating(true)} />
+          <EmptyState onImport={() => setImporting(true)} onGenerate={() => setGenerating({})} />
         ) : (
           <Main
             tab={tab}
@@ -245,7 +247,13 @@ export default function App() {
         )}
 
         {importing && <ImportModal onClose={() => setImporting(false)} />}
-        {generating && <GeneratorModal onClose={() => setGenerating(false)} />}
+        {generating && (
+          <GeneratorModal
+            onClose={() => setGenerating(null)}
+            initialKind={generating.kind}
+            initialSeed={generating.seed}
+          />
+        )}
         {exporting && <ExportModal onClose={() => setExporting(false)} />}
         {newTypeStyle && <TypeStyleModal onClose={() => setNewTypeStyle(false)} />}
         {docsOpen && <DocsModal onClose={() => setDocsOpen(false)} />}
@@ -258,6 +266,7 @@ export default function App() {
           />
         )}
       </div>
+      </GeneratorProvider>
      </VisionProvider>
     </NavProvider>
   );

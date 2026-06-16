@@ -3,12 +3,15 @@ import type { Token } from "../types";
 import { useStore } from "../store";
 import { resolve } from "../lib/value";
 import { parseColor, toCssDisplay } from "../lib/color";
+import { toHex } from "../lib/color";
 import { OklchEditor } from "./OklchEditor";
 import { ContrastInline } from "./ContrastInline";
+import { useGenerator } from "../generator";
 
 /** Inline editor for a single token: rename, edit value, relink alias. */
 export function TokenEditor({ token, onClose }: { token: Token; onClose: () => void }) {
   const { tokens, byName, dispatch } = useStore();
+  const openGenerator = useGenerator();
   const [name, setName] = useState(token.name);
 
   const isRef = token.value.kind === "ref";
@@ -103,6 +106,17 @@ export function TokenEditor({ token, onClose }: { token: Token; onClose: () => v
       )}
 
       {rgb && <ContrastInline token={token} rgb={rgb} />}
+
+      {rgb && (
+        <button
+          className="btn small"
+          style={{ justifySelf: "start" }}
+          title="Build a full 50–900 tonal ramp seeded from this color"
+          onClick={() => openGenerator({ kind: "color", seed: toHex({ ...rgb, a: 1 }) })}
+        >
+          Generate ramp from this →
+        </button>
+      )}
 
       <div className="actions">
         <button className="btn small" onClick={onClose}>
