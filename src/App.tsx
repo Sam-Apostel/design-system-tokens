@@ -24,6 +24,7 @@ import { DependencyGraph } from "./components/DependencyGraph";
 import { ComponentsView } from "./components/ComponentsView";
 import { CreateTokenModal } from "./components/CreateTokenModal";
 import { GeneratorModal } from "./components/GeneratorModal";
+import { ThemeGallery } from "./components/ThemeGallery";
 import { DocsModal } from "./components/DocsModal";
 import type { RecItem } from "./lib/recommendations";
 
@@ -48,6 +49,7 @@ export default function App() {
   const [exporting, setExporting] = useState(false);
   const [newTypeStyle, setNewTypeStyle] = useState(false);
   const [generating, setGenerating] = useState<GenRequest | null>(null);
+  const [themesOpen, setThemesOpen] = useState(false);
   const [docsOpen, setDocsOpen] = useState(false);
   const [createItem, setCreateItem] = useState<RecItem | null>(null);
   const [shared, setShared] = useState(false);
@@ -181,6 +183,7 @@ export default function App() {
                 <>
                   <div className="tb-menu-backdrop" onClick={closeMenu} />
                   <div className="tb-menu-panel" role="menu">
+                    <button className="tb-item" onClick={() => { setThemesOpen(true); closeMenu(); }}>Browse themes…</button>
                     <button className="tb-item" onClick={() => { setImporting(true); closeMenu(); }}>Import…</button>
                     <button className="tb-item" onClick={() => { setGenerating({}); closeMenu(); }}>Generate a scale…</button>
                     {!empty && <button className="tb-item" onClick={() => { share(); closeMenu(); }}>{shared ? "Link copied ✓" : "Share link"}</button>}
@@ -236,7 +239,7 @@ export default function App() {
         </div>
 
         {empty ? (
-          <EmptyState onImport={() => setImporting(true)} onGenerate={() => setGenerating({})} />
+          <EmptyState onImport={() => setImporting(true)} onGenerate={() => setGenerating({})} onThemes={() => setThemesOpen(true)} />
         ) : (
           <Main
             tab={tab}
@@ -246,6 +249,7 @@ export default function App() {
           />
         )}
 
+        {themesOpen && <ThemeGallery onClose={() => setThemesOpen(false)} />}
         {importing && <ImportModal onClose={() => setImporting(false)} />}
         {generating && (
           <GeneratorModal

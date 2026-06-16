@@ -84,10 +84,24 @@ export function semanticPairings(tokens: Token[], byName: Map<string, Token>) {
 /**
  * Conservative subset used by the linter: non-inverse text tokens over
  * non-overlay surfaces, where low contrast is almost certainly a bug.
+ *
+ * Excludes "on-fill" foregrounds — an `X-foreground` token whose fill `X` exists
+ * and isn't itself a surface (e.g. primary-foreground, destructive-foreground).
+ * Those are designed to sit on their namesake fill, not on neutral surfaces, so
+ * pairing them with surfaces is a false positive.
  */
 export function auditableFailures(tokens: Token[], byName: Map<string, Token>): Pairing[] {
   const { pairs } = semanticPairings(tokens, byName);
+  const names = new Set(tokens.map((t) => t.name));
+  const isOnFill = (name: string) => {
+    const m = name.match(/^(.+)-foreground$/);
+    return !!m && names.has(m[1]) && !isSurfaceName(m[1]);
+  };
   return pairs.filter(
-    (p) => !INVERSE_RE.test(p.text.name) && !/overlay|scrim/i.test(p.surface.name) && p.wcag < 4.5,
+    (p) =>
+      !INVERSE_RE.test(p.text.name) &&
+      !isOnFill(p.text.name) &&
+      !/overlay|scrim/i.test(p.surface.name) &&
+      p.wcag < 4.5,
   );
 }

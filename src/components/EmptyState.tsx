@@ -19,7 +19,7 @@ const EXAMPLE = `:root {
   --font-weight-bold: 700;
 }`;
 
-export function EmptyState({ onImport, onGenerate }: { onImport: () => void; onGenerate: () => void }) {
+export function EmptyState({ onImport, onGenerate, onThemes }: { onImport: () => void; onGenerate: () => void; onThemes: () => void }) {
   const { dispatch } = useStore();
 
   return (
@@ -36,14 +36,17 @@ export function EmptyState({ onImport, onGenerate }: { onImport: () => void; onG
         </p>
 
         <div className="empty-actions">
-          <button className="btn primary" onClick={onImport}>
+          <button className="btn primary" onClick={onThemes}>
+            Browse themes
+          </button>
+          <button className="btn" onClick={onImport}>
             Import CSS
           </button>
           <button className="btn" onClick={onGenerate}>
             Generate a scale
           </button>
           <button className="btn" onClick={() => dispatch({ type: "load", css: SAMPLE_CSS })}>
-            Load example tokens
+            Load example
           </button>
         </div>
 

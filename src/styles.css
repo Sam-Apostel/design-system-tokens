@@ -1772,6 +1772,101 @@ input[type="color"] {
 .cp-caption { font-size: var(--text-caption-size, 0.75rem); color: var(--muted-foreground, var(--text-muted, #6b7280)); }
 
 /* ===================================================================
+   Theme gallery
+   =================================================================== */
+.theme-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 14px;
+}
+.theme-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  text-align: left;
+  transition: transform 0.08s ease, border-color 0.1s ease;
+}
+.theme-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent);
+}
+.theme-prev {
+  padding: 16px 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.theme-prev-card {
+  border: 1px solid;
+  border-radius: 10px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.theme-prev-line {
+  height: 6px;
+  border-radius: 3px;
+  opacity: 0.9;
+}
+.theme-prev-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+.theme-prev-btn {
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+}
+.theme-prev-btn.ghost {
+  background: transparent;
+  border-style: solid;
+}
+.theme-prev-ramp {
+  display: flex;
+  height: 12px;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.theme-prev-ramp span {
+  flex: 1;
+}
+.theme-meta {
+  padding: 12px 14px 14px;
+  border-top: 1px solid var(--border-soft);
+}
+.theme-name {
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.theme-mode {
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 1px 6px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  color: var(--text-faint);
+  font-weight: 600;
+}
+.theme-blurb {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-top: 4px;
+  line-height: 1.45;
+}
+
+/* ===================================================================
    Scale generator
    =================================================================== */
 .gen-body { display: grid; gap: 18px; }
