@@ -8,6 +8,7 @@ export type Tab =
   | "graph"
   | "components"
   | "spacing"
+  | "shadows"
   | "typography"
   | "checks"
   | "tokens";

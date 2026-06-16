@@ -116,9 +116,8 @@ export function ContrastView() {
                   <span className="pairing-chip" style={{ background: toCssDisplay(p.surface.rgb), color: toCssDisplay(p.text.rgb) }}>Ag</span>
                   <div className="pairing-meta">
                     <div className="mono pairing-names" title={`--${p.text.name} on --${p.surface.name}`}>
-                      <span>--{p.text.name}</span>
-                      <span className="faint"> on </span>
-                      <span>--{p.surface.name}</span>
+                      <span className="pairing-fg">--{p.text.name}</span>
+                      <span className="pairing-bg"><span className="faint">on </span>--{p.surface.name}</span>
                     </div>
                     <div className="mono pairing-score">
                       {metric === "wcag" ? `${p.wcag.toFixed(2)}:1` : `Lc ${Math.round(p.apca)}`} ·{" "}

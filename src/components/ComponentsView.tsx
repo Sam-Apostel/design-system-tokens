@@ -102,6 +102,24 @@ export function ComponentsView() {
         </section>
 
         <section>
+          <div className="cp-h">Elevation</div>
+          <div className="cp-elev-row">
+            <div className="cp-elev cp-elev--sm">
+              <span className="cp-elev-name">Low</span>
+              <span className="cp-elev-tag mono">shadow-sm</span>
+            </div>
+            <div className="cp-elev cp-elev--md">
+              <span className="cp-elev-name">Raised</span>
+              <span className="cp-elev-tag mono">shadow / raised</span>
+            </div>
+            <div className="cp-elev cp-elev--lg">
+              <span className="cp-elev-name">Overlay</span>
+              <span className="cp-elev-tag mono">shadow-lg / overlay</span>
+            </div>
+          </div>
+        </section>
+
+        <section>
           <div className="cp-h">Controls</div>
           <div className="cp-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
             <div className="cp-field">
@@ -189,7 +207,8 @@ export function ComponentsView() {
 
       <p className="hint" style={{ marginTop: 12 }}>
         Each part resolves through a broad fallback chain, so the preview uses whatever your set
-        provides — contract names, shadcn names, or component-scoped ones (button-bg, control-*,
+        provides — colors, radii (radius-*/control-radius), spacing (space-*/button-padding-*),
+        and shadows (shadow-*/elevation-*), plus component-scoped names (button-bg, control-*,
         toast-*, table-*, chip-*). The more of the layer you define, the closer this matches your real UI.
       </p>
     </div>

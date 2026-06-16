@@ -1553,9 +1553,18 @@ input[type="color"] {
 }
 .pairing-names {
   font-size: 11.5px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.pairing-names > span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.pairing-bg {
+  color: var(--text-dim);
 }
 .pairing-score {
   font-size: 11px;
@@ -1791,7 +1800,15 @@ input[type="color"] {
   --cp-radius: var(--radius-control, var(--control-radius, var(--button-radius, var(--radius-2, var(--rounded, var(--border-radius, var(--radius-md, 0.375rem)))))));
   --cp-radius-lg: var(--radius-card, var(--panel-radius, var(--dialog-radius, var(--radius-6, var(--rounded-md, 0.75rem)))));
   --cp-radius-pill: var(--chip-radius, 9999px);
-  --cp-shadow: var(--shadow-raised, var(--shadow-md, var(--shadow, 0 4px 12px rgba(0, 0, 0, 0.1))));
+  --cp-shadow-sm: var(--shadow-sm, var(--shadow-1, var(--shadow-low, var(--elevation-1, var(--shadow-xs, 0 1px 2px rgba(0, 0, 0, 0.08))))));
+  --cp-shadow: var(--shadow-raised, var(--shadow-md, var(--shadow-2, var(--elevation-2, var(--shadow, 0 4px 12px rgba(0, 0, 0, 0.1))))));
+  --cp-shadow-lg: var(--shadow-overlay, var(--shadow-lg, var(--shadow-high, var(--shadow-4, var(--elevation-4, var(--shadow-xl, 0 16px 40px rgba(0, 0, 0, 0.18)))))));
+  /* Structural spacing — driven by the set's spacing scale where present. */
+  --cp-gap: var(--space-3, var(--spacing-3, var(--gap-md, 0.75rem)));
+  --cp-gap-lg: var(--space-5, var(--spacing-5, var(--gap-lg, 1.25rem)));
+  --cp-pad-card: var(--space-card-padding, var(--card-padding, var(--dialog-padding, var(--space-6, var(--spacing-6, 1.5rem)))));
+  --cp-btn-px: var(--button-padding-x, var(--space-4, var(--spacing-4, 1rem)));
+  --cp-btn-py: var(--button-padding-y, var(--space-2, var(--spacing-2, 0.5rem)));
   --cp-chip-bg: var(--chip-bg, var(--select-chip-bg, var(--cp-secondary)));
   --cp-chip-fg: var(--chip-text, var(--select-chip-text, var(--cp-secondary-fg)));
   --cp-chip-border: var(--chip-border, transparent);
@@ -1822,9 +1839,9 @@ input[type="color"] {
   color: var(--cp-muted);
   margin-bottom: 12px;
 }
-.cp-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
-.cp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
-.cp-stack { display: flex; flex-direction: column; gap: 10px; }
+.cp-row { display: flex; flex-wrap: wrap; gap: var(--cp-gap); align-items: center; }
+.cp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: var(--cp-gap-lg); }
+.cp-stack { display: flex; flex-direction: column; gap: var(--cp-gap); }
 
 /* buttons */
 .cp-btn {
@@ -1833,7 +1850,7 @@ input[type="color"] {
   font-weight: var(--button-font-weight, 500);
   font-size: var(--button-font-size, var(--text-body-sm-size, 0.875rem));
   text-transform: var(--button-text-transform, none);
-  padding: 0.5rem 1rem;
+  padding: var(--cp-btn-py) var(--cp-btn-px);
   border-radius: var(--cp-radius);
   border: 1px solid transparent;
   cursor: pointer;
@@ -1868,7 +1885,7 @@ input[type="color"] {
   border: 1px solid var(--cp-border);
   border-radius: var(--cp-radius-lg);
   box-shadow: var(--cp-shadow);
-  padding: var(--space-card-padding, var(--dialog-padding, var(--space-6, 1.5rem)));
+  padding: var(--cp-pad-card);
 }
 .cp-card-title { font-size: var(--text-subheading-size, var(--dialog-title-font-size, 1.125rem)); font-weight: var(--text-subheading-weight, 600); line-height: 1.2; }
 .cp-card-desc { color: var(--cp-muted); font-size: var(--text-body-sm-size, var(--body-small-font-size, 0.875rem)); margin-top: 4px; }
@@ -1881,7 +1898,7 @@ input[type="color"] {
   color: var(--cp-control-fg);
   border: 1px solid var(--cp-control-border);
   border-radius: var(--cp-radius);
-  padding: 0 0.75rem;
+  padding: 0 var(--cp-btn-px);
   height: var(--control-height, var(--input-height, 2.375rem));
   font: inherit;
   font-size: var(--control-font-size, var(--input-font-size, var(--text-body-sm-size, 0.875rem)));
@@ -1901,6 +1918,27 @@ input[type="color"] {
   padding: 3px 10px; font-size: var(--chip-font-size, 0.8125rem); font-weight: var(--chip-font-weight, 600);
 }
 .cp-chip small { opacity: 0.7; cursor: pointer; }
+
+/* elevation — surfaces lifted by the set's shadow scale */
+.cp-elev-row { display: flex; flex-wrap: wrap; gap: var(--cp-gap-lg); }
+.cp-elev {
+  flex: 1 1 150px;
+  min-width: 140px;
+  background: var(--cp-surface);
+  color: var(--cp-surface-fg);
+  border: 1px solid var(--cp-border);
+  border-radius: var(--cp-radius-lg);
+  padding: var(--cp-gap);
+  min-height: 76px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.cp-elev--sm { box-shadow: var(--cp-shadow-sm); }
+.cp-elev--md { box-shadow: var(--cp-shadow); }
+.cp-elev--lg { box-shadow: var(--cp-shadow-lg); }
+.cp-elev-name { font-weight: 600; font-size: var(--text-body-sm-size, 0.875rem); }
+.cp-elev-tag { font-size: 10.5px; color: var(--cp-muted); }
 
 /* alerts / toasts — filled tints (toast-*-bg / surface-*) when provided */
 .cp-alert {
@@ -1964,6 +2002,69 @@ input[type="color"] {
 .cp-body-sm { font-size: var(--text-body-sm-size, var(--body-small-font-size, 0.875rem)); font-weight: var(--text-body-sm-weight, 400); line-height: var(--text-body-sm-leading, 1.5); }
 .cp-label { font-size: var(--text-label-size, var(--label-mono-uppercase-font-size, 0.875rem)); font-weight: var(--text-label-weight, 500); }
 .cp-caption { font-size: var(--text-caption-size, var(--badge-tiny-font-size, 0.75rem)); color: var(--cp-muted); }
+
+/* ===================================================================
+   Shadows / elevation
+   =================================================================== */
+.shadow-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 18px;
+  padding: 24px 20px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin-top: 10px;
+}
+.shadow-grid.backdrop-light { background: #f3f3f5; }
+.shadow-grid.backdrop-dark { background: #18181b; }
+.shadow-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: stretch;
+  padding: 0;
+  border: none;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+}
+.shadow-tile {
+  height: 64px;
+  border-radius: 10px;
+}
+.backdrop-light .shadow-tile { background: #ffffff; }
+.backdrop-dark .shadow-tile { background: #2a2a2e; }
+.shadow-meta { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.shadow-name {
+  font-size: 11.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.backdrop-light .shadow-name { color: #18181b; }
+.backdrop-dark .shadow-name { color: #f3f3f5; }
+.shadow-tags { display: flex; gap: 5px; flex-wrap: wrap; min-height: 0; }
+.shadow-tag {
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(127, 127, 127, 0.18);
+}
+.backdrop-light .shadow-tag { color: #52525b; }
+.backdrop-dark .shadow-tag { color: #d4d4d8; }
+.shadow-val {
+  font-size: 10px;
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.backdrop-light .shadow-val { color: #71717a; }
+.backdrop-dark .shadow-val { color: #a1a1aa; }
+.shadow-cell:hover .shadow-tile { transform: translateY(-1px); transition: transform 0.1s ease; }
 
 /* ===================================================================
    Theme gallery

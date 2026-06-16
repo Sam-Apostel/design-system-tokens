@@ -11,6 +11,7 @@ import { uiThemeVars, THEME_VARS } from "./lib/uiTheme";
 import { TokenList } from "./components/TokenList";
 import { PaletteView } from "./components/PaletteView";
 import { SpacingView } from "./components/SpacingView";
+import { ShadowsView } from "./components/ShadowsView";
 import { TypographyView } from "./components/TypographyView";
 import { ColorSpaceView } from "./components/ColorSpaceView";
 import { ContrastView } from "./components/ContrastView";
@@ -35,6 +36,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "semantics", label: "Semantics" },
   { id: "graph", label: "Graph" },
   { id: "spacing", label: "Spacing" },
+  { id: "shadows", label: "Shadows" },
   { id: "typography", label: "Typography" },
   { id: "components", label: "Components" },
   { id: "checks", label: "Checks" },
@@ -342,6 +344,14 @@ function Main({
       );
     case "spacing":
       return <Split left={<TokenList category="spacing" title="Spacing tokens" />}><SpacingView /></Split>;
+    case "shadows":
+      return (
+        <div className="content">
+          <div style={{ maxWidth: 1000, margin: "0 auto" }}>
+            <ShadowsView />
+          </div>
+        </div>
+      );
     case "typography":
       return (
         <Split
