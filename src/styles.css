@@ -1261,6 +1261,14 @@ input[type="color"] {
   right: 10px;
   z-index: 2;
 }
+.plot-edit-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin-top: 10px;
+  text-align: center;
+}
 
 /* ---------- Tier overview ---------- */
 .tier-overview {

@@ -372,6 +372,121 @@ export function rgbToLab(c: RGB): { L: number; a: number; b: number } {
   return { L: 116 * fy - 16, a: 500 * (fx - fy), b: 200 * (fy - fz) };
 }
 
+/** CIELAB (D65) → linear sRGB, unclamped (for gamut testing). */
+function labLin(L: number, a: number, b: number): { r: number; g: number; b: number } {
+  const fy = (L + 16) / 116;
+  const fx = fy + a / 500;
+  const fz = fy - b / 200;
+  const e = 216 / 24389;
+  const k = 24389 / 27;
+  const inv = (f: number, isY: boolean) => {
+    const f3 = f * f * f;
+    if (isY) return L > k * e ? f3 : L / k;
+    return f3 > e ? f3 : (116 * f - 16) / k;
+  };
+  const x = inv(fx, false) * 0.95047;
+  const y = inv(fy, true);
+  const z = inv(fz, false) * 1.08883;
+  return {
+    r: 3.2404542 * x - 1.5371385 * y - 0.4985314 * z,
+    g: -0.969266 * x + 1.8760108 * y + 0.041556 * z,
+    b: 0.0556434 * x - 0.2040259 * y + 1.0572252 * z,
+  };
+}
+
+export function labToRgb(L: number, a: number, b: number): Omit<RGB, "a"> {
+  const lin = labLin(L, a, b);
+  return { r: clamp01(toGamma(lin.r)), g: clamp01(toGamma(lin.g)), b: clamp01(toGamma(lin.b)) };
+}
+
+export function labInGamut(L: number, a: number, b: number): boolean {
+  const lin = labLin(L, a, b);
+  const eps = 0.001;
+  return [lin.r, lin.g, lin.b].every((v) => v >= -eps && v <= 1 + eps);
+}
+
+/* ------------------------------------------------------------------ *
+ * Plane editing & slicing (interactive color-space plots)
+ * ------------------------------------------------------------------ */
+
+/** Which 2D projection of a color space a plot shows. */
+export type PlotPlane = "ab" | "LC" | "LH";
+
+const wrapHue = (h: number) => ((h % 360) + 360) % 360;
+
+/**
+ * Map a position on a color-space plane back to a color, holding the dimension
+ * the plane doesn't show fixed to `base`'s value. (dx, dy) are the plane's data
+ * coordinates — same units as toSpacePoint emits per plane. Used for dragging a
+ * single stop in the plots.
+ */
+export function editToRgb(space: ColorSpace, plane: PlotPlane, dx: number, dy: number, base: RGB): RGB {
+  if (space === "hsl") {
+    const { h, s, l } = rgbToHsl(base);
+    if (plane === "ab") return { ...hslToRgb(wrapHue((Math.atan2(dy, dx) * 180) / Math.PI), Math.min(1, Math.hypot(dx, dy)), l), a: base.a };
+    if (plane === "LC") return { ...hslToRgb(h, clamp01(dx), clamp01(dy)), a: base.a };
+    return { ...hslToRgb(wrapHue(dx), s, clamp01(dy)), a: base.a };
+  }
+  if (space === "oklab") {
+    const o = rgbToOklab(base);
+    if (plane === "ab") return { ...oklabToRgb(o.L, dx * 0.4, dy * 0.4), a: base.a };
+    if (plane === "LC") {
+      const C = Math.max(0, dx * 0.4);
+      const hr = Math.atan2(o.b, o.a);
+      return { ...oklabToRgb(clamp01(dy), C * Math.cos(hr), C * Math.sin(hr)), a: base.a };
+    }
+    const C = Math.hypot(o.a, o.b);
+    const hr = (dx * Math.PI) / 180;
+    return { ...oklabToRgb(clamp01(dy), C * Math.cos(hr), C * Math.sin(hr)), a: base.a };
+  }
+  const lab = rgbToLab(base);
+  if (plane === "ab") return { ...labToRgb(lab.L, dx * 128, dy * 128), a: base.a };
+  if (plane === "LC") {
+    const C = Math.max(0, dx * 128);
+    const hr = Math.atan2(lab.b, lab.a);
+    return { ...labToRgb(clamp01(dy) * 100, C * Math.cos(hr), C * Math.sin(hr)), a: base.a };
+  }
+  const C = Math.hypot(lab.a, lab.b);
+  const hr = (dx * Math.PI) / 180;
+  return { ...labToRgb(clamp01(dy) * 100, C * Math.cos(hr), C * Math.sin(hr)), a: base.a };
+}
+
+/**
+ * The color at a point on a plane slice, or null if it's outside the sRGB gamut.
+ * `held` is the fixed value of the dimension the plane doesn't show (lightness
+ * for "ab", hue° for "LC", chroma for "LH"). Used to paint the plot background.
+ */
+export function slicePixel(space: ColorSpace, plane: PlotPlane, dx: number, dy: number, held: number): RGB | null {
+  if (space === "hsl") {
+    if (plane === "ab") {
+      const s = Math.hypot(dx, dy);
+      if (s > 1) return null;
+      return { ...hslToRgb(wrapHue((Math.atan2(dy, dx) * 180) / Math.PI), s, held), a: 1 };
+    }
+    if (plane === "LC") {
+      if (dx < 0 || dx > 1 || dy < 0 || dy > 1) return null;
+      return { ...hslToRgb(held, dx, dy), a: 1 };
+    }
+    if (dy < 0 || dy > 1) return null;
+    return { ...hslToRgb(wrapHue(dx), held, dy), a: 1 };
+  }
+  let L: number, a: number, b: number;
+  if (space === "oklab") {
+    if (plane === "ab") { L = held; a = dx * 0.4; b = dy * 0.4; }
+    else if (plane === "LC") { L = dy; const C = dx * 0.4; if (C < 0) return null; const hr = (held * Math.PI) / 180; a = C * Math.cos(hr); b = C * Math.sin(hr); }
+    else { L = dy; const hr = (dx * Math.PI) / 180; a = held * Math.cos(hr); b = held * Math.sin(hr); }
+    if (L <= 0 || L >= 1) return null;
+    if (!oklchInGamut(L, Math.hypot(a, b), (Math.atan2(b, a) * 180) / Math.PI)) return null;
+    return { ...oklabToRgb(L, a, b), a: 1 };
+  }
+  if (plane === "ab") { L = held; a = dx * 128; b = dy * 128; }
+  else if (plane === "LC") { L = dy * 100; const C = dx * 128; if (C < 0) return null; const hr = (held * Math.PI) / 180; a = C * Math.cos(hr); b = C * Math.sin(hr); }
+  else { L = dy * 100; const hr = (dx * Math.PI) / 180; a = held * Math.cos(hr); b = held * Math.sin(hr); }
+  if (L <= 0 || L >= 100) return null;
+  if (!labInGamut(L, a, b)) return null;
+  return { ...labToRgb(L, a, b), a: 1 };
+}
+
 /* ------------------------------------------------------------------ *
  * Plot coordinates per color space
  * ------------------------------------------------------------------ */

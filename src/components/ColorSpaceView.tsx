@@ -8,7 +8,10 @@ import {
   toSpacePoint,
   rgbToOklab,
   oklabToRgb,
+  editToRgb,
+  slicePixel,
   type ColorSpace,
+  type PlotPlane,
   type SpacePoint,
   type RGB,
 } from "../lib/color";
@@ -16,7 +19,7 @@ import { buildRamps } from "../lib/groups";
 import { rampMetrics, lightnessProfile, type RampMetrics, type LightnessStep } from "../lib/rampMetrics";
 import type { Token } from "../types";
 
-type PlotMode = "ab" | "LC" | "LH";
+type PlotMode = PlotPlane;
 
 const SPACES: { id: ColorSpace; label: string }[] = [
   { id: "oklab", label: "OKLab / OKLCH" },
@@ -32,6 +35,7 @@ const MODES: { id: PlotMode; label: string }[] = [
 const S = 460;
 const PAD = 34;
 const INNER = S - PAD * 2;
+const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 
 interface PlotItem {
   token: Token;
@@ -48,6 +52,9 @@ interface Bounds {
   minY: number;
   maxY: number;
 }
+
+/** Live drag preview: a stop shown at a new color before the edit is committed. */
+type Preview = { id: string; rgb: RGB } | null;
 
 /** Raw (un-normalized for plotting) coordinates per mode. */
 function dataCoord(pt: SpacePoint, mode: PlotMode): { x: number; y: number } {
@@ -107,6 +114,38 @@ function project(pt: SpacePoint, mode: PlotMode, b: Bounds): { px: number; py: n
   return { px, py };
 }
 
+/** The fixed value of the dimension a plane doesn't show, averaged over a scale. */
+function heldFor(items: PlotItem[], space: ColorSpace, plane: PlotMode): number {
+  if (items.length === 0) {
+    if (plane === "ab") return space === "cielab" ? 70 : 0.7;
+    if (plane === "LC") return 265;
+    return space === "oklab" ? 0.13 : space === "cielab" ? 45 : 0.6;
+  }
+  if (plane === "LC") {
+    let sx = 0, sy = 0;
+    for (const it of items) {
+      const hr = (it.pt.hue * Math.PI) / 180;
+      sx += Math.cos(hr);
+      sy += Math.sin(hr);
+    }
+    let h = (Math.atan2(sy, sx) * 180) / Math.PI;
+    if (h < 0) h += 360;
+    return h;
+  }
+  let sum = 0;
+  for (const it of items) {
+    if (plane === "ab") sum += space === "cielab" ? it.pt.lightness * 100 : it.pt.lightness;
+    else sum += space === "oklab" ? it.pt.chroma * 0.4 : space === "cielab" ? it.pt.chroma * 128 : it.pt.chroma;
+  }
+  return sum / items.length;
+}
+
+function sliceLabel(space: ColorSpace, plane: PlotMode, held: number): string {
+  if (plane === "ab") return space === "hsl" ? `L ${Math.round(held * 100)}` : space === "cielab" ? `L* ${Math.round(held)}` : `L ${Math.round(held * 100)}`;
+  if (plane === "LC") return `hue ${Math.round(held)}°`;
+  return space === "hsl" ? `S ${Math.round(held * 100)}` : `C ${held.toFixed(space === "cielab" ? 0 : 2)}`;
+}
+
 export function ColorSpaceView() {
   const { tokens, byName, dispatch } = useStore();
   const [space, setSpace] = useState<ColorSpace>("oklab");
@@ -115,7 +154,10 @@ export function ColorSpaceView() {
   const [fit, setFit] = useState(true);
   const [focusRamp, setFocusRamp] = useState<string | null>(null);
   const [hoverRamp, setHoverRamp] = useState<string | null>(null);
+  const [preview, setPreview] = useState<Preview>(null);
   const emphasize = hoverRamp ?? focusRamp;
+
+  const idToken = useMemo(() => new Map(tokens.map((t) => [t.id, t])), [tokens]);
 
   const items = useMemo<PlotItem[]>(() => {
     const colors = tokens.filter((t) => t.category === "color");
@@ -179,6 +221,17 @@ export function ColorSpaceView() {
   };
   const fixAll = () => scales.forEach((s) => fixSteps(s.group, s.profile));
 
+  // Drag editing: preview live, commit once (one undo step) on release.
+  const editMove = (id: string, rgb: RGB) => setPreview({ id, rgb });
+  const editEnd = (id: string, rgb: RGB) => {
+    const t = idToken.get(id);
+    if (t) {
+      const target = terminalToken(t, byName);
+      dispatch({ type: "setValue", id: target.id, raw: toHex({ ...rgb, a: 1 }) });
+    }
+    setPreview(null);
+  };
+
   const axis = AXIS_LABELS[mode][space];
 
   return (
@@ -222,6 +275,7 @@ export function ColorSpaceView() {
             <Plot
               title="All colors"
               items={items}
+              space={space}
               mode={mode}
               showLinks={showLinks}
               axis={axis}
@@ -229,8 +283,20 @@ export function ColorSpaceView() {
               emphasize={emphasize}
               onHoverRamp={setHoverRamp}
               flagged={flagged}
+              editRamp={focusRamp}
+              preview={preview}
+              onEditMove={editMove}
+              onEditEnd={editEnd}
               big
             />
+            {focusRamp ? (
+              <p className="hint plot-edit-hint">
+                Editing <b className="mono">{focusRamp}</b> — drag its stops on the plane to recolor them.
+                <button className="btn small" style={{ marginLeft: 10 }} onClick={() => setFocusRamp(null)}>Done</button>
+              </p>
+            ) : (
+              scales.length > 0 && <p className="hint plot-edit-hint">Select a scale below to drag its stops directly on the map.</p>
+            )}
           </div>
 
           {scales.length > 0 && (
@@ -243,23 +309,46 @@ export function ColorSpaceView() {
                 <div className="spacer" />
                 {focusRamp && (
                   <button className="btn small" onClick={() => setFocusRamp(null)}>
-                    Focusing {focusRamp} ✕
+                    Editing {focusRamp} ✕
                   </button>
                 )}
               </div>
               <div className="plot-grid">
                 {scales.map(({ key, group, metrics, profile }) => {
                   const uneven = profile.filter((p) => p.flagged).length;
+                  const isFocused = focusRamp === key;
                   return (
                     <div
                       key={key}
-                      className={`plot-cell ${focusRamp === key ? "focused" : ""}`}
+                      className={`plot-cell ${isFocused ? "focused" : ""}`}
                       onClick={() => setFocusRamp((cur) => (cur === key ? null : key))}
                       onMouseEnter={() => setHoverRamp(key)}
                       onMouseLeave={() => setHoverRamp((h) => (h === key ? null : h))}
                     >
-                      <Plot title={key} items={group} mode={mode} showLinks={showLinks} axis={axis} fit={fit} metrics={metrics} flagged={flagged} uneven={uneven} />
-                      <LightnessProfile steps={profile} items={group} />
+                      <Plot
+                        title={key}
+                        items={group}
+                        space={space}
+                        mode={mode}
+                        showLinks={showLinks}
+                        axis={axis}
+                        fit={fit}
+                        metrics={metrics}
+                        flagged={flagged}
+                        uneven={uneven}
+                        editRamp={isFocused ? key : null}
+                        preview={preview}
+                        onEditMove={editMove}
+                        onEditEnd={editEnd}
+                      />
+                      <LightnessProfile
+                        steps={profile}
+                        items={group}
+                        editable={isFocused}
+                        preview={preview}
+                        onEditMove={editMove}
+                        onEditEnd={editEnd}
+                      />
                       {uneven > 0 && (
                         <button
                           className="btn small fix-btn"
@@ -282,12 +371,11 @@ export function ColorSpaceView() {
           <div className="card" style={{ marginTop: 24 }}>
             <div className="section-title">How to read this</div>
             <p className="hint" style={{ marginTop: 0 }}>
-              Each dot is a color token, filled with its real color and positioned by the selected color
-              space. With <b>Fit to data</b> on, each plot zooms to its own colors so ramps fill the frame.
-              Dots <span style={{ color: "var(--warning)" }}>ringed amber</span> are steps whose lightness
-              deviates from an even ramp. Each scale's <b>lightness profile</b> plots L against the dashed
-              ideal line — dots off that line are inconsistent; a kink that reverses direction is a
-              non-monotonic step.
+              The plot background paints the selected color space as a slice (its label shows the fixed
+              third dimension). Each dot is a color token, filled with its real color. Select a scale to
+              make its stops <b>draggable</b> — move them on the plane to retune hue/chroma/lightness, or
+              drag points on the <b>lightness profile</b> to set lightness directly. One undo step per drag.
+              Dots <span style={{ color: "var(--warning)" }}>ringed amber</span> deviate from an even ramp.
             </p>
           </div>
         </>
@@ -299,6 +387,7 @@ export function ColorSpaceView() {
 function Plot({
   title,
   items,
+  space,
   mode,
   showLinks,
   axis,
@@ -309,9 +398,14 @@ function Plot({
   onHoverRamp,
   flagged,
   uneven,
+  editRamp,
+  preview,
+  onEditMove,
+  onEditEnd,
 }: {
   title: string;
   items: PlotItem[];
+  space: ColorSpace;
   mode: PlotMode;
   showLinks: boolean;
   axis: { x: string; y: string };
@@ -322,6 +416,10 @@ function Plot({
   onHoverRamp?: (ramp: string | null) => void;
   flagged?: Set<string>;
   uneven?: number;
+  editRamp?: string | null;
+  preview?: Preview;
+  onEditMove?: (id: string, rgb: RGB) => void;
+  onEditEnd?: (id: string, rgb: RGB) => void;
 }) {
   const bounds = useMemo(() => computeBounds(items, mode, fit), [items, mode, fit]);
 
@@ -329,7 +427,39 @@ function Plot({
   const svgRef = useRef<SVGSVGElement>(null);
   const [view, setView] = useState({ x: 0, y: 0, w: S, h: S });
   const drag = useRef<{ x: number; y: number } | null>(null);
+  const edit = useRef<{ id: string; base: RGB } | null>(null);
+  const justEdited = useRef(false);
   const zoomed = view.w !== S || view.x !== 0 || view.y !== 0;
+
+  // Paint the color-space slice as a background image (out-of-gamut = transparent).
+  const held = useMemo(() => heldFor(items, space, mode), [items, space, mode]);
+  const bgUrl = useMemo(() => {
+    const res = big ? 168 : 88;
+    const dxr = bounds.maxX - bounds.minX;
+    const dyr = bounds.maxY - bounds.minY;
+    const cnv = document.createElement("canvas");
+    cnv.width = res;
+    cnv.height = res;
+    const ctx = cnv.getContext("2d");
+    if (!ctx) return null;
+    const img = ctx.createImageData(res, res);
+    const d = img.data;
+    for (let py = 0; py < res; py++) {
+      const dy = bounds.minY + (1 - py / (res - 1)) * dyr;
+      for (let px = 0; px < res; px++) {
+        const dx = bounds.minX + (px / (res - 1)) * dxr;
+        const rgb = slicePixel(space, mode, dx, dy, held);
+        if (!rgb) continue;
+        const o = (py * res + px) * 4;
+        d[o] = Math.round(rgb.r * 255);
+        d[o + 1] = Math.round(rgb.g * 255);
+        d[o + 2] = Math.round(rgb.b * 255);
+        d[o + 3] = 255;
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+    return cnv.toDataURL();
+  }, [space, mode, bounds, held, big]);
 
   // Reset the view whenever what's plotted changes.
   useEffect(() => {
@@ -358,12 +488,34 @@ function Plot({
     return () => el.removeEventListener("wheel", onWheel);
   }, [big]);
 
+  // Pointer position → data coordinates of the current plane.
+  const eventToData = (e: React.PointerEvent<SVGSVGElement>) => {
+    const el = svgRef.current!;
+    const rect = el.getBoundingClientRect();
+    let sx: number, sy: number;
+    if (big) {
+      sx = view.x + ((e.clientX - rect.left) / rect.width) * view.w;
+      sy = view.y + ((e.clientY - rect.top) / rect.height) * view.h;
+    } else {
+      sx = ((e.clientX - rect.left) / rect.width) * S;
+      sy = ((e.clientY - rect.top) / rect.height) * S;
+    }
+    const dx = bounds.minX + ((sx - PAD) / INNER) * (bounds.maxX - bounds.minX);
+    const dy = bounds.minY + (1 - (sy - PAD) / INNER) * (bounds.maxY - bounds.minY);
+    return { dx, dy };
+  };
+
   const onPointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
-    if (!big) return;
+    if (!big) return; // pan is hero-only; dot drags start on the circle
     drag.current = { x: e.clientX, y: e.clientY };
-    e.currentTarget.setPointerCapture(e.pointerId);
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* no active pointer */ }
   };
   const onPointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
+    if (edit.current) {
+      const { dx, dy } = eventToData(e);
+      onEditMove?.(edit.current.id, editToRgb(space, mode, dx, dy, edit.current.base));
+      return;
+    }
     if (!big || !drag.current) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const dx = ((e.clientX - drag.current.x) / rect.width) * view.w;
@@ -371,7 +523,14 @@ function Plot({
     drag.current = { x: e.clientX, y: e.clientY };
     setView((v) => ({ ...v, x: v.x - dx, y: v.y - dy }));
   };
-  const endDrag = () => {
+  const onPointerUp = (e: React.PointerEvent<SVGSVGElement>) => {
+    if (edit.current) {
+      const { dx, dy } = eventToData(e);
+      onEditEnd?.(edit.current.id, editToRgb(space, mode, dx, dy, edit.current.base));
+      edit.current = null;
+      justEdited.current = true;
+      return;
+    }
     drag.current = null;
   };
 
@@ -404,17 +563,25 @@ function Plot({
         preserveAspectRatio="xMidYMid meet"
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
-        onPointerUp={endDrag}
-        onPointerLeave={endDrag}
+        onPointerUp={onPointerUp}
+        onPointerLeave={() => { if (!edit.current) drag.current = null; }}
+        onClickCapture={(e) => { if (justEdited.current) { e.stopPropagation(); justEdited.current = false; } }}
       >
         <rect x={PAD} y={PAD} width={INNER} height={INNER} fill="var(--panel)" stroke="var(--border)" />
-        {showOriginX && <line x1={ox} y1={PAD} x2={ox} y2={S - PAD} stroke="var(--border-soft)" />}
-        {showOriginY && <line x1={PAD} y1={oy} x2={S - PAD} y2={oy} stroke="var(--border-soft)" />}
-        <text x={S / 2} y={S - 8} textAnchor="middle" fontSize="12" fill="var(--text-faint)">
+        {bgUrl && (
+          <image href={bgUrl} x={PAD} y={PAD} width={INNER} height={INNER} preserveAspectRatio="none" style={{ pointerEvents: "none" }} />
+        )}
+        <rect x={PAD} y={PAD} width={INNER} height={INNER} fill="none" stroke="var(--border)" style={{ pointerEvents: "none" }} />
+        {showOriginX && <line x1={ox} y1={PAD} x2={ox} y2={S - PAD} stroke="var(--hairline)" style={{ pointerEvents: "none" }} />}
+        {showOriginY && <line x1={PAD} y1={oy} x2={S - PAD} y2={oy} stroke="var(--hairline)" style={{ pointerEvents: "none" }} />}
+        <text x={S / 2} y={S - 8} textAnchor="middle" fontSize="12" fill="var(--text-faint)" style={{ pointerEvents: "none" }}>
           {axis.x}
         </text>
-        <text x={14} y={S / 2} textAnchor="middle" fontSize="12" fill="var(--text-faint)" transform={`rotate(-90 14 ${S / 2})`}>
+        <text x={14} y={S / 2} textAnchor="middle" fontSize="12" fill="var(--text-faint)" transform={`rotate(-90 14 ${S / 2})`} style={{ pointerEvents: "none" }}>
           {axis.y}
+        </text>
+        <text x={PAD + 6} y={PAD + 15} fontSize="11" fontFamily="var(--mono)" fill="var(--text)" opacity="0.65" style={{ pointerEvents: "none" }}>
+          {sliceLabel(space, mode, held)}
         </text>
         {link?.map(({ ramp, pts }, i) => {
           const dim = emphasize != null && ramp !== emphasize;
@@ -423,32 +590,48 @@ function Plot({
               key={i}
               points={pts.map((p) => `${p.px},${p.py}`).join(" ")}
               fill="none"
-              stroke={dim ? "var(--plot-line-dim)" : "var(--plot-line)"}
+              stroke={dim ? "var(--plot-line-dim)" : "rgba(127,127,127,0.55)"}
               strokeWidth={emphasize === ramp ? 2.5 : 1.5}
+              style={{ pointerEvents: "none" }}
             />
           );
         })}
         {items.map((it) => {
-          const { px, py } = project(it.pt, mode, bounds);
+          const isPrev = preview?.id === it.token.id;
+          const rgb = isPrev ? preview!.rgb : it.rgb;
+          const pt = isPrev ? toSpacePoint(rgb, space) : it.pt;
+          const css = isPrev ? toCssDisplay(rgb) : it.css;
+          const { px, py } = project(pt, mode, bounds);
           const dim = emphasize != null && it.ramp !== emphasize;
           const isFlagged = flagged?.has(it.token.name);
-          const stroke = isFlagged ? "var(--warning)" : emphasize === it.ramp ? "var(--plot-ring)" : "var(--hairline)";
-          const sw = isFlagged ? 2.5 : emphasize === it.ramp ? 1.5 : 1;
+          const editable = editRamp != null && it.ramp === editRamp;
+          const stroke = isFlagged ? "var(--warning)" : editable ? "#fff" : "rgba(0,0,0,0.5)";
+          const sw = isFlagged ? 2.5 : editable ? 2 : 1.25;
           return (
             <circle
               key={it.token.id}
               cx={px}
               cy={py}
-              r={big ? (emphasize === it.ramp ? 8 : 7) : 6}
-              fill={it.css}
+              r={big ? (editable || emphasize === it.ramp ? 8 : 7) : editable ? 6 : 5}
+              fill={css}
               stroke={stroke}
               strokeWidth={sw}
               opacity={dim ? 0.12 : 1}
-              style={onHoverRamp ? { cursor: "pointer" } : undefined}
-              onMouseEnter={onHoverRamp ? () => onHoverRamp(it.ramp) : undefined}
-              onMouseLeave={onHoverRamp ? () => onHoverRamp(null) : undefined}
+              style={{ cursor: editable ? "grab" : onHoverRamp ? "pointer" : "default" }}
+              onPointerDown={
+                editable
+                  ? (e) => {
+                      e.stopPropagation();
+                      edit.current = { id: it.token.id, base: it.rgb };
+                      try { svgRef.current?.setPointerCapture(e.pointerId); } catch { /* no active pointer */ }
+                    }
+                  : undefined
+              }
+              onClick={editable ? (e) => e.stopPropagation() : undefined}
+              onMouseEnter={onHoverRamp && !editable ? () => onHoverRamp(it.ramp) : undefined}
+              onMouseLeave={onHoverRamp && !editable ? () => onHoverRamp(null) : undefined}
             >
-              <title>{`--${it.token.name}\n${it.hex}${isFlagged ? "\n⚠ uneven lightness step" : ""}`}</title>
+              <title>{`--${it.token.name}\n${isPrev ? toHex(rgb) : it.hex}${isFlagged ? "\n⚠ uneven lightness step" : ""}${editable ? "\n drag to edit" : ""}`}</title>
             </circle>
           );
         })}
@@ -470,28 +653,74 @@ function Plot({
 }
 
 /**
- * Lightness across a ramp vs an even ideal line. A straight diagonal of dots on
- * the line = evenly distributed; dots off the line (ringed amber) are the
- * inconsistent steps.
+ * Lightness across a ramp vs an even ideal line. When editable, drag a dot up or
+ * down to set that step's lightness directly (hue & chroma preserved).
  */
-function LightnessProfile({ steps, items }: { steps: LightnessStep[]; items: PlotItem[] }) {
-  if (steps.length < 2) return null;
+function LightnessProfile({
+  steps,
+  items,
+  editable,
+  preview,
+  onEditMove,
+  onEditEnd,
+}: {
+  steps: LightnessStep[];
+  items: PlotItem[];
+  editable?: boolean;
+  preview?: Preview;
+  onEditMove?: (id: string, rgb: RGB) => void;
+  onEditEnd?: (id: string, rgb: RGB) => void;
+}) {
   const W = 240;
   const H = 84;
   const padX = 8;
   const padY = 10;
-  const n = steps.length;
+  const svgRef = useRef<SVGSVGElement>(null);
+  const edit = useRef<{ id: string; base: RGB } | null>(null);
 
-  const allL = steps.flatMap((s) => [s.L, s.ideal]);
+  const n = steps.length;
+  const lvl = (i: number) => {
+    const isPrev = preview?.id === items[i]?.token.id;
+    return isPrev ? clamp01(rgbToOklab(preview!.rgb).L) : steps[i].L;
+  };
+
+  if (n < 2) return null;
+
+  const allL = steps.flatMap((s, i) => [lvl(i), s.ideal]);
   let lo = Math.min(...allL);
   let hi = Math.max(...allL);
   if (hi - lo < 1e-6) { lo -= 0.05; hi += 0.05; }
   const x = (i: number) => padX + (i / (n - 1)) * (W - padX * 2);
   const y = (L: number) => padY + (1 - (L - lo) / (hi - lo)) * (H - padY * 2);
+  const yToL = (clientY: number) => {
+    const rect = svgRef.current!.getBoundingClientRect();
+    const sy = ((clientY - rect.top) / rect.height) * H;
+    return clamp01(lo + (1 - (sy - padY) / (H - padY * 2)) * (hi - lo));
+  };
+
+  const onMove = (e: React.PointerEvent<SVGSVGElement>) => {
+    if (!edit.current) return;
+    const o = rgbToOklab(edit.current.base);
+    onEditMove?.(edit.current.id, { ...oklabToRgb(yToL(e.clientY), o.a, o.b), a: edit.current.base.a });
+  };
+  const onUp = (e: React.PointerEvent<SVGSVGElement>) => {
+    if (!edit.current) return;
+    const o = rgbToOklab(edit.current.base);
+    onEditEnd?.(edit.current.id, { ...oklabToRgb(yToL(e.clientY), o.a, o.b), a: edit.current.base.a });
+    edit.current = null;
+  };
 
   return (
     <div className="ramp-profile">
-      <svg viewBox={`0 0 ${W} ${H}`} className="plot-svg" preserveAspectRatio="none">
+      <svg
+        ref={svgRef}
+        viewBox={`0 0 ${W} ${H}`}
+        className="plot-svg"
+        preserveAspectRatio="none"
+        onPointerMove={onMove}
+        onPointerUp={onUp}
+        onClickCapture={(e) => e.stopPropagation()}
+      >
         {/* ideal even-distribution line */}
         <line
           x1={x(0)}
@@ -504,28 +733,42 @@ function LightnessProfile({ steps, items }: { steps: LightnessStep[]; items: Plo
         />
         {/* actual lightness path */}
         <polyline
-          points={steps.map((s, i) => `${x(i)},${y(s.L)}`).join(" ")}
+          points={steps.map((_, i) => `${x(i)},${y(lvl(i))}`).join(" ")}
           fill="none"
           stroke="var(--plot-line)"
           strokeWidth={1.5}
         />
-        {steps.map((s, i) => (
-          <circle
-            key={i}
-            cx={x(i)}
-            cy={y(s.L)}
-            r={s.flagged ? 5 : 3.5}
-            fill={items[i]?.css ?? "#000"}
-            stroke={s.flagged ? "var(--warning)" : "var(--hairline)"}
-            strokeWidth={s.flagged ? 2 : 1}
-          >
-            <title>{`--${items[i]?.token.name}\nL ${Math.round(s.L * 100)} (ideal ${Math.round(
-              s.ideal * 100,
-            )}, off ${s.residual >= 0 ? "+" : ""}${Math.round(s.residual * 100)})`}</title>
-          </circle>
-        ))}
+        {steps.map((s, i) => {
+          const isPrev = preview?.id === items[i]?.token.id;
+          const fill = isPrev ? toCssDisplay(preview!.rgb) : items[i]?.css ?? "#000";
+          return (
+            <circle
+              key={i}
+              cx={x(i)}
+              cy={y(lvl(i))}
+              r={editable ? 5 : s.flagged ? 5 : 3.5}
+              fill={fill}
+              stroke={s.flagged ? "var(--warning)" : editable ? "#fff" : "var(--hairline)"}
+              strokeWidth={s.flagged ? 2 : editable ? 1.6 : 1}
+              style={{ cursor: editable ? "ns-resize" : "default" }}
+              onPointerDown={
+                editable
+                  ? (e) => {
+                      e.stopPropagation();
+                      edit.current = { id: items[i].token.id, base: items[i].rgb };
+                      try { svgRef.current?.setPointerCapture(e.pointerId); } catch { /* no active pointer */ }
+                    }
+                  : undefined
+              }
+            >
+              <title>{`--${items[i]?.token.name}\nL ${Math.round(lvl(i) * 100)} (ideal ${Math.round(
+                s.ideal * 100,
+              )})${editable ? "\n drag to set lightness" : ""}`}</title>
+            </circle>
+          );
+        })}
       </svg>
-      <div className="ramp-profile-cap mono faint">lightness vs even ramp</div>
+      <div className="ramp-profile-cap mono faint">lightness vs even ramp{editable ? " · drag to edit" : ""}</div>
     </div>
   );
 }
