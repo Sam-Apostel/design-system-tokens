@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useStore } from "../store";
+import { useEscapeClose } from "../lib/useEscapeClose";
 
 interface FieldDef {
   key: keyof Fields;
@@ -33,6 +34,7 @@ const SAMPLE = "The quick brown fox jumps over the lazy dog";
  */
 export function TypeStyleModal({ onClose }: { onClose: () => void }) {
   const { tokens, dispatch } = useStore();
+  useEscapeClose(onClose);
   const [name, setName] = useState("text-heading");
   const [fields, setFields] = useState<Fields>({
     family: "",

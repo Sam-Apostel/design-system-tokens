@@ -2,9 +2,11 @@ import { useRef, useState } from "react";
 import { useStore } from "../store";
 import { extractDeclarations } from "../lib/parseCss";
 import { looksLikeJson, safeJsonCount, jsonToCss } from "../lib/importJson";
+import { useEscapeClose } from "../lib/useEscapeClose";
 
 export function ImportModal({ onClose }: { onClose: () => void }) {
   const { dispatch } = useStore();
+  useEscapeClose(onClose);
   const [text, setText] = useState("");
   const [mode, setMode] = useState<"replace" | "merge">("merge");
   const [dragOver, setDragOver] = useState(false);

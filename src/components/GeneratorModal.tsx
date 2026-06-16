@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useStore } from "../store";
+import { useEscapeClose } from "../lib/useEscapeClose";
 import { toHex, parseColor } from "../lib/color";
 import {
   generateColorRamp,
@@ -22,6 +23,7 @@ type Kind = "color" | "spacing" | "type";
 export function GeneratorModal({ onClose, initialKind = "color" }: { onClose: () => void; initialKind?: Kind }) {
   const { tokens, dispatch } = useStore();
   const [kind, setKind] = useState<Kind>(initialKind);
+  useEscapeClose(onClose);
 
   return (
     <div className="modal-backdrop" onClick={onClose}>

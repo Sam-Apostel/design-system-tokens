@@ -4,6 +4,7 @@ import { useStore } from "../store";
 import { resolve } from "../lib/value";
 import { parseColor, rgbToOklch, shiftColor, toHex } from "../lib/color";
 import { hueName } from "../lib/scale";
+import { useEscapeClose } from "../lib/useEscapeClose";
 
 /**
  * Clone a whole group/ramp under a new prefix. For color ramps you can rotate
@@ -20,6 +21,7 @@ export function DuplicateGroupModal({
   onClose: () => void;
 }) {
   const { tokens: all, byName, dispatch } = useStore();
+  useEscapeClose(onClose);
 
   // Resolve each group token to a color (if any) for preview + hue suggestion.
   const colors = useMemo(

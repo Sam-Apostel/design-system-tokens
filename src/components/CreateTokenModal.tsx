@@ -6,6 +6,7 @@ import { spacingKind, lengthToPx } from "../lib/spacing";
 import { tierOf } from "../lib/tiers";
 import type { CreateKind } from "../lib/recommendations";
 import { SizePreview } from "./SizePreview";
+import { useEscapeClose } from "../lib/useEscapeClose";
 
 /**
  * Guided creator for a single semantic/component token. Defaults to aliasing an
@@ -23,6 +24,7 @@ export function CreateTokenModal({
   onClose: () => void;
 }) {
   const { tokens, byName, dispatch } = useStore();
+  useEscapeClose(onClose);
   const [name, setName] = useState(initialName);
   const [mode, setMode] = useState<"alias" | "raw">("alias");
   const [raw, setRaw] = useState(kind === "color" ? "#000000" : kind === "radius" || kind === "spacing" ? "8px" : "");

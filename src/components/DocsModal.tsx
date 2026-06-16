@@ -1,5 +1,8 @@
+import { useEscapeClose } from "../lib/useEscapeClose";
+
 /** Conceptual guide to a tiered token approach. Pure content, no state. */
 export function DocsModal({ onClose }: { onClose: () => void }) {
+  useEscapeClose(onClose);
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>

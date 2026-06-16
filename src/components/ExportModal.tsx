@@ -1,9 +1,11 @@
 import { useMemo, useState } from "react";
 import { useStore } from "../store";
 import { exportTokens, FORMATS, type ExportFormat } from "../lib/exporters";
+import { useEscapeClose } from "../lib/useEscapeClose";
 
 export function ExportModal({ onClose }: { onClose: () => void }) {
   const { tokens, modeList } = useStore();
+  useEscapeClose(onClose);
   const [format, setFormat] = useState<ExportFormat>("css");
   const [selector, setSelector] = useState(":root");
   const [grouped, setGrouped] = useState(true);
