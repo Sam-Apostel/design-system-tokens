@@ -22,7 +22,9 @@ const LEN_RE = /(?:^|[\s,(])-?\d*\.?\d+(?:px|rem|em)\b/gi;
 export function isShadowValue(v: string | null): boolean {
   const s = (v ?? "").trim();
   if (!s) return false;
-  if (s === "none") return true;
+  // NB: bare "none" is NOT a shadow shape on its own (it's also display/outline/
+  // text-decoration: none). Shadow-named tokens set to "none" are handled by
+  // isShadowToken's explicit `v === "none"` check instead.
   // Reject other comma/length-bearing values that aren't shadows.
   if (/\b(?:url|gradient|cubic-bezier|calc|translate|rotate|scale|matrix|steps)\b/i.test(s)) return false;
   if (!COLOR_RE.test(s)) return false;

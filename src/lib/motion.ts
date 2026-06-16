@@ -2,10 +2,24 @@ import type { Token } from "../types";
 import { resolve } from "./value";
 
 const EASING_KEYWORD_RE = /^(linear|ease|ease-in|ease-out|ease-in-out|step-start|step-end)$/i;
+// A time anywhere in the value (covers transition shorthands like "all 0.2s ease").
+const TIME_RE = /(?:^|[\s,(])(-?\d*\.?\d+)\s*(ms|s)(?:$|[\s,)])/i;
 
-/** Value reads as a time: `120ms`, `.4s`, `400ms`. Returns milliseconds or null. */
+/** Value reads as a bare time: `120ms`, `.4s`, `400ms`. Returns ms or null. */
 export function durationMs(raw: string | null): number | null {
   const m = (raw ?? "").trim().match(/^(-?\d*\.?\d+)\s*(ms|s)$/i);
+  if (!m) return null;
+  const n = parseFloat(m[1]);
+  if (!isFinite(n)) return null;
+  return m[2].toLowerCase() === "s" ? n * 1000 : n;
+}
+
+/** First time found anywhere in the value (bare duration OR transition shorthand). */
+export function firstDurationMs(raw: string | null): number | null {
+  const s = (raw ?? "").trim();
+  const bare = durationMs(s);
+  if (bare != null) return bare;
+  const m = s.match(TIME_RE);
   if (!m) return null;
   const n = parseFloat(m[1]);
   if (!isFinite(n)) return null;
@@ -44,30 +58,63 @@ export function easingPoints(raw: string | null): BezierPoints | null {
 
 /** steps(n[, pos]) → n, else null. */
 export function stepsCount(raw: string | null): number | null {
-  const m = (raw ?? "").trim().match(/^steps\(\s*(\d+)/i);
+  const m = (raw ?? "").trim().match(/steps\(\s*(\d+)/i);
   return m ? parseInt(m[1], 10) : null;
 }
 
-/** Is this literal an easing of any form (keyword, cubic-bezier, steps)? */
-export function isEasingValue(raw: string | null): boolean {
+/** A bare easing keyword: `ease`, `linear`, … — ambiguous (also a gradient/curve type). */
+function isEasingKeyword(raw: string): boolean {
+  return EASING_KEYWORD_RE.test(raw);
+}
+
+/** cubic-bezier(…) / steps(…) — these literals never appear outside motion. */
+function hasUnambiguousEasing(raw: string): boolean {
+  return /cubic-bezier\(|steps\(|step-start|step-end/i.test(raw);
+}
+
+/** Pull the easing portion out of a value (bare keyword, cubic-bezier, or steps). */
+export function extractEasing(raw: string | null): string | null {
   const s = (raw ?? "").trim();
-  return EASING_KEYWORD_RE.test(s) || /^cubic-bezier\(/i.test(s) || /^steps\(/i.test(s);
+  if (!s) return null;
+  if (isEasingKeyword(s)) return s.toLowerCase();
+  const fn = s.match(/(cubic-bezier\([^)]*\)|steps\([^)]*\))/i);
+  if (fn) return fn[1];
+  const kw = s.match(/(?:^|[\s,])(ease-in-out|ease-in|ease-out|ease|linear|step-start|step-end)(?:$|[\s,])/i);
+  return kw ? kw[1].toLowerCase() : null;
+}
+
+/** Is this literal an easing of any form (used to decide the Easings section)? */
+export function isEasingValue(raw: string | null): boolean {
+  return extractEasing(raw) != null;
 }
 
 const MOTION_NAME_RE = /(^|[-_])(duration|transition|animation|delay|easing|ease|bezier|motion)([-_]|$)/i;
 
-/** A token that represents motion, by value shape or by name. */
+/**
+ * A token that represents motion. Value-gated like isShadowToken so it doesn't
+ * steal tokens from spacing/typography:
+ *  - a bare/embedded time or cubic-bezier/steps is unambiguously motion;
+ *  - a bare easing keyword (ease/linear) is motion only under a motion-ish name
+ *    (it's also a gradient/curve interpolation type);
+ *  - a motion-ish name with a non-motion value (a length/number/font) is NOT
+ *    motion — let it fall through to its real category. Only an empty/`none`
+ *    value (a reset or broken alias) is kept as motion.
+ */
 export function isMotionToken(name: string, value: string | null): boolean {
   const v = (value ?? "").trim();
-  if (durationMs(v) != null) return true;
-  if (isEasingValue(v)) return true;
-  return MOTION_NAME_RE.test(name);
+  if (firstDurationMs(v) != null) return true;
+  if (hasUnambiguousEasing(v)) return true;
+  if (isEasingKeyword(v)) return MOTION_NAME_RE.test(name);
+  if (MOTION_NAME_RE.test(name)) return v === "" || /^none$/i.test(v);
+  return false;
 }
 
 export interface DurationItem {
   token: Token;
   raw: string | null;
   ms: number | null;
+  /** Clean, non-negative duration string for the animation bar. */
+  durationCss: string;
   ref: string | null;
 }
 
@@ -75,6 +122,8 @@ export interface EasingItem {
   token: Token;
   raw: string | null;
   ref: string | null;
+  /** The easing portion, ready for `animation-timing-function`. */
+  easing: string;
   points: BezierPoints | null;
   steps: number | null;
 }
@@ -84,9 +133,15 @@ export function durationItems(tokens: Token[], byName: Map<string, Token>): Dura
   for (const t of tokens) {
     if (t.category !== "motion") continue;
     const raw = resolve(t, byName).finalRaw;
-    const ms = durationMs(raw);
+    const ms = firstDurationMs(raw);
     if (ms == null) continue;
-    out.push({ token: t, raw, ms, ref: t.value.kind === "ref" ? t.value.ref : null });
+    out.push({
+      token: t,
+      raw,
+      ms,
+      durationCss: `${Math.max(0, ms)}ms`, // negative times are invalid for animation-duration
+      ref: t.value.kind === "ref" ? t.value.ref : null,
+    });
   }
   return out.sort((a, b) => (a.ms ?? 0) - (b.ms ?? 0) || a.token.name.localeCompare(b.token.name));
 }
@@ -96,13 +151,15 @@ export function easingItems(tokens: Token[], byName: Map<string, Token>): Easing
   for (const t of tokens) {
     if (t.category !== "motion") continue;
     const raw = resolve(t, byName).finalRaw;
-    if (!isEasingValue(raw)) continue;
+    const easing = extractEasing(raw);
+    if (!easing) continue;
     out.push({
       token: t,
       raw,
       ref: t.value.kind === "ref" ? t.value.ref : null,
-      points: easingPoints(raw),
-      steps: stepsCount(raw),
+      easing,
+      points: easingPoints(easing),
+      steps: stepsCount(easing),
     });
   }
   return out.sort((a, b) => a.token.name.localeCompare(b.token.name));

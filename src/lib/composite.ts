@@ -16,6 +16,7 @@ export const LEAF_TO_CSS_PROP: Array<[leaf: string, prop: string]> = [
   ["text-decoration", "text-decoration"],
   ["text-color", "color"],
   // non-type composites (opt-in via the same mechanism):
+  ["background-color", "background-color"],
   ["border-radius", "border-radius"],
   ["border-color", "border-color"],
   ["border-width", "border-width"],
@@ -35,8 +36,8 @@ export const LEAF_TO_CSS_PROP: Array<[leaf: string, prop: string]> = [
 
 const PROP_ORDER = [
   "font-family", "font-size", "font-weight", "font-style", "line-height",
-  "letter-spacing", "text-transform", "text-decoration", "color", "background",
-  "border-radius", "border-width", "border-color", "padding", "gap",
+  "letter-spacing", "text-transform", "text-decoration", "color", "background-color",
+  "background", "border-radius", "border-width", "border-color", "padding", "gap",
 ];
 
 export interface CompositeMember {

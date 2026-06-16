@@ -46,14 +46,21 @@ export function duplicateValueGroups(tokens: Token[], byName: Map<string, Token>
   const groups: DuplicateGroup[] = [];
   for (const [key, b] of buckets) {
     if (b.members.length < 2) continue;
-    const rawLiteralCount = b.members.filter((t) => t.value.kind === "raw").length;
+    // An "independent literal" hard-codes the value with no reference to another
+    // token. parseValue() classifies composites like color-mix(var(--x), …) as
+    // kind "raw" even though they DO reference a token, so also require the raw
+    // string to contain no var() — otherwise such aliasing tokens get mislabeled
+    // as redundant.
+    const independentLiterals = b.members.filter(
+      (t) => t.value.kind === "raw" && !/var\(/i.test(t.value.raw),
+    ).length;
     groups.push({
       value: b.display,
       normalizedValue: key,
       kind: b.kind,
       category: b.members[0].category,
       tokens: b.members,
-      allAlias: rawLiteralCount <= 1,
+      allAlias: independentLiterals <= 1,
       trivial: TRIVIAL.has(key),
     });
   }

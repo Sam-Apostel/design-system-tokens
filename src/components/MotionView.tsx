@@ -43,7 +43,7 @@ export function MotionView() {
         <div className="card">
           <div className="section-title">Durations <span className="count">({durations.length})</span></div>
           <div className="motion-dur-list" key={`dur-${replay}`}>
-            {durations.map(({ token, raw, ms, ref }) => {
+            {durations.map(({ token, raw, ms, durationCss, ref }) => {
               const sev = issues.get(token.name);
               return (
                 <div
@@ -53,7 +53,7 @@ export function MotionView() {
                   onClick={() => navigate("tokens", token.name)}
                 >
                   <div className="motion-dur-track">
-                    <div className="motion-dur-bar" style={{ animationDuration: raw ?? "0ms" }} />
+                    <div className="motion-dur-bar" style={{ animationDuration: durationCss }} />
                   </div>
                   <div className="motion-meta">
                     <span className="motion-name mono">
@@ -77,7 +77,7 @@ export function MotionView() {
         <div className="card">
           <div className="section-title">Easings <span className="count">({easings.length})</span></div>
           <div className="motion-ease-grid" key={`ease-${replay}`}>
-            {easings.map(({ token, raw, ref, points, steps }) => {
+            {easings.map(({ token, raw, ref, easing, points, steps }) => {
               const sev = issues.get(token.name);
               return (
                 <button
@@ -88,8 +88,8 @@ export function MotionView() {
                 >
                   <div className="motion-ease-plot">
                     <EasingCurve points={points} />
-                    {raw && (points || steps) && (
-                      <span className="motion-ease-dot" style={{ animationTimingFunction: raw }} />
+                    {(points || steps) && (
+                      <span className="motion-ease-dot" style={{ animationTimingFunction: easing }} />
                     )}
                   </div>
                   <div className="motion-meta">
