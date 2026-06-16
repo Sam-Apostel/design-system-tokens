@@ -19,6 +19,8 @@ import { buildRamps } from "../lib/groups";
 import { tierMap } from "../lib/tiers";
 import { isAlias } from "../lib/relations";
 import { rampMetrics, lightnessProfile, type RampMetrics, type LightnessStep } from "../lib/rampMetrics";
+import { ColorSpace3D } from "./ColorSpace3D";
+import { useEditToken } from "../editToken";
 import type { Token } from "../types";
 
 type PlotMode = PlotPlane;
@@ -150,8 +152,10 @@ function sliceLabel(space: ColorSpace, plane: PlotMode, held: number): string {
 
 export function ColorSpaceView() {
   const { tokens, byName, dispatch } = useStore();
+  const openEditor = useEditToken();
   const [space, setSpace] = useState<ColorSpace>("oklab");
   const [mode, setMode] = useState<PlotMode>("ab");
+  const [view3d, setView3d] = useState(false);
   const [showLinks, setShowLinks] = useState(true);
   const [fit, setFit] = useState(true);
   // The painted color-space slice is a single 2D cross-section at one fixed third
@@ -268,6 +272,10 @@ export function ColorSpaceView() {
     <div>
       <div className="section-title">Color space</div>
       <div className="plot-controls">
+        <div className="seg" title="Plot the colors in 3D (true space) or as a 2D plane">
+          <button className={!view3d ? "active" : ""} onClick={() => setView3d(false)}>2D</button>
+          <button className={view3d ? "active" : ""} onClick={() => setView3d(true)}>3D</button>
+        </div>
         <div className="seg">
           {SPACES.map((s) => (
             <button key={s.id} className={space === s.id ? "active" : ""} onClick={() => setSpace(s.id)}>
@@ -275,25 +283,31 @@ export function ColorSpaceView() {
             </button>
           ))}
         </div>
-        <div className="seg">
-          {MODES.map((m) => (
-            <button key={m.id} className={mode === m.id ? "active" : ""} onClick={() => setMode(m.id)}>
-              {m.label}
-            </button>
-          ))}
-        </div>
-        <label className="toggle">
-          <input type="checkbox" checked={fit} onChange={(e) => setFit(e.target.checked)} />
-          Fit to data
-        </label>
+        {!view3d && (
+          <div className="seg">
+            {MODES.map((m) => (
+              <button key={m.id} className={mode === m.id ? "active" : ""} onClick={() => setMode(m.id)}>
+                {m.label}
+              </button>
+            ))}
+          </div>
+        )}
+        {!view3d && (
+          <label className="toggle">
+            <input type="checkbox" checked={fit} onChange={(e) => setFit(e.target.checked)} />
+            Fit to data
+          </label>
+        )}
         <label className="toggle">
           <input type="checkbox" checked={showLinks} onChange={(e) => setShowLinks(e.target.checked)} />
           Connect ramps
         </label>
-        <label className="toggle" title="Paint the color-space cross-section behind the dots (one fixed third dimension)">
-          <input type="checkbox" checked={showSlice} onChange={(e) => setShowSlice(e.target.checked)} />
-          Gamut slice
-        </label>
+        {!view3d && (
+          <label className="toggle" title="Paint the color-space cross-section behind the dots (one fixed third dimension)">
+            <input type="checkbox" checked={showSlice} onChange={(e) => setShowSlice(e.target.checked)} />
+            Gamut slice
+          </label>
+        )}
         {totalUneven > 0 && (
           <button className="btn small" onClick={fixAll} title="Snap every flagged step onto its even-lightness ideal">
             Fix all {totalUneven} uneven
@@ -303,6 +317,30 @@ export function ColorSpaceView() {
 
       {items.length === 0 ? (
         <div className="empty">No resolvable colors to plot.</div>
+      ) : view3d ? (
+        <>
+          <div className="plot-hero">
+            <ColorSpace3D
+              items={items}
+              space={space}
+              showLinks={showLinks}
+              emphasize={emphasize}
+              onHoverRamp={setHoverRamp}
+              flagged={flagged}
+              onPick={openEditor}
+            />
+          </div>
+          <div className="card" style={{ marginTop: 24 }}>
+            <div className="section-title">How to read this</div>
+            <p className="hint" style={{ marginTop: 0 }}>
+              Every dot is a color token in true 3-D — placed at its real coordinates in the selected space
+              (OKLab/CIELAB plot the a-b plane with lightness up; HSL is a cylinder — hue angle, saturation
+              radius, lightness up). Ramps are connected in order; dots
+              <span style={{ color: "var(--warning)" }}> ringed amber</span> are uneven lightness steps.
+              Drag to orbit, scroll to zoom, and click a dot to edit that token.
+            </p>
+          </div>
+        </>
       ) : (
         <>
           <div className="plot-hero" ref={heroRef}>

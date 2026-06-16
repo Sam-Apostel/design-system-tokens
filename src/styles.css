@@ -1185,6 +1185,42 @@ input[type="color"] {
   max-width: 620px;
   margin: 0 auto;
 }
+
+/* ---------- 3D color viewer ---------- */
+.plot3d {
+  margin: 0;
+  background: var(--panel);
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  padding: 12px;
+}
+.plot3d-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 8px;
+}
+.plot3d-bar .spacer {
+  flex: 1;
+}
+.plot3d-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 8px;
+  background: radial-gradient(120% 120% at 50% 25%, var(--bg-elev) 0%, var(--panel) 70%);
+  cursor: grab;
+  touch-action: none;
+}
+.plot3d-svg.grabbing {
+  cursor: grabbing;
+}
+.plot3d figcaption {
+  margin-top: 6px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-faint);
+}
 .plot-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
