@@ -151,9 +151,12 @@ export function designedPairings(tokens: Token[], byName: Map<string, Token>): D
   for (const [g, list] of byGroup) {
     const fgs = list.filter((e) => e.role === "fg");
     const bgs = list.filter((e) => e.role === "bg");
-    for (const f of fgs) for (const b of bgs) {
-      if (f.state && b.state && f.state !== b.state) continue;
-      add(f.name, b.name, g);
+    for (const b of bgs) {
+      // A state background pairs with its own state's foreground when one exists
+      // (active text on active bg) — not the base text, which never sits on it.
+      const sameState = b.state ? fgs.filter((f) => f.state === b.state) : [];
+      const targets = sameState.length ? sameState : fgs.filter((f) => !f.state || f.state === b.state);
+      for (const f of targets) add(f.name, b.name, g);
     }
   }
 
