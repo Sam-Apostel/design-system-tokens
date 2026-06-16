@@ -612,10 +612,32 @@ export function relativeLuminance(c: RGB): number {
   return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
 
-/** WCAG contrast ratio, 1..21. */
-export function contrastRatio(a: RGB, b: RGB): number {
-  const la = relativeLuminance(a);
-  const lb = relativeLuminance(b);
+/** sRGB page color assumed behind a translucent background when none is known. */
+const PAGE_BASE: RGB = { r: 1, g: 1, b: 1, a: 1 };
+
+/** Alpha-composite `fg` over `bg` (straight alpha, sRGB). */
+export function compositeOver(fg: RGB, bg: RGB): RGB {
+  const fa = fg.a ?? 1;
+  if (fa >= 1) return { ...fg, a: 1 };
+  const ba = bg.a ?? 1;
+  const a = fa + ba * (1 - fa);
+  if (a <= 0) return { r: 0, g: 0, b: 0, a: 0 };
+  const blend = (f: number, b: number) => (f * fa + b * ba * (1 - fa)) / a;
+  return { r: blend(fg.r, bg.r), g: blend(fg.g, bg.g), b: blend(fg.b, bg.b), a };
+}
+
+/**
+ * WCAG contrast ratio, 1..21. `fg` is the foreground (text), `bg` the surface.
+ * WCAG is defined on opaque colors, so a translucent foreground is composited
+ * over the background first, and a translucent background over an assumed white
+ * page — otherwise alpha is silently ignored and the ratio is wildly wrong
+ * (e.g. rgba(0,0,0,.1) over white would read 21:1 instead of ~1.2:1).
+ */
+export function contrastRatio(fg: RGB, bg: RGB): number {
+  const bgOpaque = (bg.a ?? 1) >= 1 ? bg : compositeOver(bg, PAGE_BASE);
+  const fgOpaque = (fg.a ?? 1) >= 1 ? fg : compositeOver(fg, bgOpaque);
+  const la = relativeLuminance(fgOpaque);
+  const lb = relativeLuminance(bgOpaque);
   const lighter = Math.max(la, lb);
   const darker = Math.min(la, lb);
   return (lighter + 0.05) / (darker + 0.05);

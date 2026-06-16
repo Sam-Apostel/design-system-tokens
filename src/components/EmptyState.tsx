@@ -3,16 +3,16 @@ import { SAMPLE_CSS } from "../lib/sample";
 
 const EXAMPLE = `:root {
   /* base palette (primitives) */
-  --colors-blue-500: #3b82f6;
-  --colors-gray-900: #111827;
+  --blue-500: #3b82f6;
+  --gray-900: #111827;
 
   /* semantic layer (aliases) */
-  --color-brand: var(--colors-blue-500);
-  --color-text: var(--colors-gray-900);
+  --primary: var(--blue-500);
+  --text: var(--gray-900);
 
   /* spacing / sizing */
-  --gap-gap-m: 0.5rem;
-  --radius-radius-s: 0.25rem;
+  --space-md: 0.5rem;
+  --radius-sm: 0.25rem;
 
   /* typography */
   --font-size-lg: 20px;
@@ -55,7 +55,7 @@ export function EmptyState({ onImport, onGenerate, onThemes }: { onImport: () =>
           <p className="hint" style={{ marginTop: 0 }}>
             Any CSS containing <span className="mono">--name: value;</span> declarations.
             Values can be literals or <span className="mono">var(--other)</span> aliases.
-            Naming with hyphens drives the grouping (e.g. <span className="mono">colors-blue-500</span>).
+            Naming with hyphens drives the grouping (e.g. <span className="mono">blue-500</span>).
           </p>
           <pre className="code-block">{EXAMPLE}</pre>
         </div>

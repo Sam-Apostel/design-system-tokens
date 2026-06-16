@@ -96,8 +96,10 @@ export function TokenEditor({ token, onClose }: { token: Token; onClose: () => v
             className="btn small"
             style={{ justifySelf: "start" }}
             onClick={() => {
-              const first = linkTargets[0];
-              if (first) dispatch({ type: "relink", id: token.id, ref: first.name });
+              // Default to a same-category token (then let the user repick in the
+              // select) rather than whatever sorts first alphabetically.
+              const target = linkTargets.find((t) => t.category === token.category) ?? linkTargets[0];
+              if (target) dispatch({ type: "relink", id: token.id, ref: target.name });
             }}
           >
             Convert to alias →
@@ -127,8 +129,10 @@ export function TokenEditor({ token, onClose }: { token: Token; onClose: () => v
           className="btn small ghost"
           style={{ color: "var(--danger)" }}
           onClick={() => {
-            dispatch({ type: "remove", id: token.id });
-            onClose();
+            if (confirm(`Delete --${token.name}? Aliases pointing at it will break. (⌘Z undoes this.)`)) {
+              dispatch({ type: "remove", id: token.id });
+              onClose();
+            }
           }}
         >
           Delete

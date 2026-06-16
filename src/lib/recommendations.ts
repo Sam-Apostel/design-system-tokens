@@ -65,13 +65,28 @@ export interface Coverage {
   matches: string[]; // token names that satisfy it
 }
 
+// Leading words that merely namespace a token (not part of its role).
+const GENERIC_PREFIX = new Set(["color", "colors", "colour", "colours", "palette", "theme", "token", "tokens", "ds"]);
+// A few well-known role synonyms, so e.g. `--bg` still satisfies `background`.
+const SYNONYM: Record<string, string> = { bg: "background", fg: "text", foreground: "text" };
+
+/** The role part of a token name, dropping namespacing prefixes like `color-`. */
+function roleName(name: string): string {
+  const segs = name.toLowerCase().split("-");
+  let i = 0;
+  while (i < segs.length - 1 && GENERIC_PREFIX.has(segs[i])) i++;
+  return segs.slice(i).join("-");
+}
+
+/**
+ * Whether a token fills a recommended role. Anchored to the token's full role
+ * name (not a substring) so a more specific token never satisfies a base role —
+ * `text-muted` must NOT count as `text`, or the base role is wrongly hidden.
+ */
 function matches(name: string, key: string): boolean {
-  const n = name.toLowerCase();
+  const role = roleName(name);
   const k = key.toLowerCase();
-  if (n.includes(k)) return true;
-  const words = k.split("-");
-  const segs = n.split("-");
-  return words.every((w) => segs.includes(w));
+  return role === k || (SYNONYM[role] ?? role) === k;
 }
 
 /** Which recommended tokens already exist, and which are missing. */

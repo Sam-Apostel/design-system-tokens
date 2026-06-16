@@ -34,9 +34,11 @@ export function OklchEditor({
   const [C, setC] = useState(o.C);
   const [h, setH] = useState(o.h);
   const [hexText, setHexText] = useState(toHex(initial));
+  const [hexFocused, setHexFocused] = useState(false);
 
   // Re-sync when the *external* value changes (different token, alias unlink,
-  // generator), but ignore our own writes (which already match).
+  // generator), but ignore our own writes (which already match) and don't clobber
+  // the hex field while the user is mid-edit in it.
   useEffect(() => {
     const p = parseColor(value);
     if (!p) return;
@@ -45,7 +47,7 @@ export function OklchEditor({
     setL(next.L);
     setC(next.C);
     setH(next.h);
-    setHexText(toHex(p));
+    if (!hexFocused) setHexText(toHex(p));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value]);
 
@@ -59,14 +61,20 @@ export function OklchEditor({
   const onC = (v: number) => { setC(v); push(L, v, h); };
   const onH = (v: number) => { setH(v); push(L, C, v); };
 
-  const commitHex = (text: string) => {
+  // `keepAlpha` re-applies the token's existing alpha for inputs that can't
+  // express it (the native color picker and eyedropper only emit opaque hex),
+  // so editing via them no longer silently drops transparency.
+  const commitHex = (text: string, keepAlpha = false): boolean => {
     const p = parseColor(text.trim());
-    if (!p) return;
-    const next = rgbToOklch(p);
+    if (!p) return false;
+    const out = keepAlpha ? { ...p, a } : p;
+    const next = rgbToOklch(out);
     setL(next.L);
     setC(next.C);
     setH(next.h);
-    onChange(toHex(p));
+    setHexText(toHex(out));
+    onChange(toHex(out));
+    return true;
   };
 
   // Gradient tracks: sample the axis being dragged at the current other two.
@@ -85,7 +93,7 @@ export function OklchEditor({
     if (!ED) return;
     try {
       const res = await new ED().open();
-      commitHex(res.sRGBHex);
+      commitHex(res.sRGBHex, true);
     } catch {
       /* user cancelled */
     }
@@ -113,12 +121,19 @@ export function OklchEditor({
           className="text-input"
           value={hexText}
           spellCheck={false}
+          onFocus={() => setHexFocused(true)}
           onChange={(e) => setHexText(e.target.value)}
-          onBlur={(e) => commitHex(e.target.value)}
+          onBlur={(e) => {
+            setHexFocused(false);
+            // Revert to the current valid color if the typed value won't parse,
+            // so the field never sits showing an uncommitted/invalid string.
+            if (!commitHex(e.target.value)) setHexText(oklchToHex(L, C, h, a));
+          }}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
-              commitHex((e.target as HTMLInputElement).value);
-              (e.target as HTMLInputElement).blur();
+              const el = e.target as HTMLInputElement;
+              if (!commitHex(el.value)) setHexText(oklchToHex(L, C, h, a));
+              el.blur();
             }
           }}
         />
@@ -126,7 +141,7 @@ export function OklchEditor({
           type="color"
           aria-label="System color picker"
           value={oklchToHex(L, C, h)}
-          onChange={(e) => commitHex(e.target.value)}
+          onChange={(e) => commitHex(e.target.value, true)}
         />
         {hasEyedropper && (
           <button className="btn small" type="button" title="Pick a color from the screen" onClick={pickEyedropper}>

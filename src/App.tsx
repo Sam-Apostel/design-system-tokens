@@ -3,10 +3,11 @@ import { useStore } from "./store";
 import { NavProvider, type Tab } from "./nav";
 import { VisionProvider } from "./vision";
 import { GeneratorProvider, type GenRequest } from "./generator";
+import { EditProvider } from "./editToken";
 import { CVD_OPTIONS, CVD_SIM_MODES, cvdMatrixValues, type CvdMode } from "./lib/cvd";
 import { lint } from "./lib/lint";
 import { tabForIssue } from "./lib/issueNav";
-import { shareUrl } from "./lib/permalink";
+import { shareUrl, hashDecodeFailed } from "./lib/permalink";
 import { uiThemeVars, THEME_VARS } from "./lib/uiTheme";
 import { TokenList } from "./components/TokenList";
 import { PaletteView } from "./components/PaletteView";
@@ -28,7 +29,11 @@ import { CreateTokenModal } from "./components/CreateTokenModal";
 import { GeneratorModal } from "./components/GeneratorModal";
 import { ThemeGallery } from "./components/ThemeGallery";
 import { DocsModal } from "./components/DocsModal";
+import { TokenEditDialog } from "./components/TokenEditDialog";
 import type { RecItem } from "./lib/recommendations";
+
+// Tabs that show a token-list sidebar to expand the editor into on desktop.
+const SPLIT_TABS = new Set<Tab>(["palette", "colorspace", "contrast", "spacing", "typography"]);
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "palette", label: "Palette" },
@@ -59,11 +64,16 @@ export default function App() {
   const [shared, setShared] = useState(false);
   const [vision, setVision] = useState<CvdMode>("none");
   const [menuOpen, setMenuOpen] = useState(false);
+  const [editName, setEditName] = useState<string | null>(null);
+  const [linkBroken, setLinkBroken] = useState(() => hashDecodeFailed());
 
   // Undo/redo keyboard shortcuts.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!(e.metaKey || e.ctrlKey)) return;
+      // Let text fields keep their own native undo stack.
+      const el = e.target as HTMLElement | null;
+      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable)) return;
       if (e.key.toLowerCase() === "z") {
         e.preventDefault();
         dispatch({ type: e.shiftKey ? "redo" : "undo" });
@@ -103,6 +113,14 @@ export default function App() {
   }, []);
   const clearFocus = useCallback(() => setFocus(null), []);
 
+  // Edit a token "in place": focus it in the current tab's side list when one is
+  // visible, otherwise open a modal — so you never lose your spot on a swatch click.
+  const openEditor = useCallback((name: string) => {
+    const narrow = typeof window !== "undefined" && window.matchMedia("(max-width: 880px)").matches;
+    if (!narrow && SPLIT_TABS.has(tab)) navigate(tab, name);
+    else setEditName(name);
+  }, [tab, navigate]);
+
   // Per-tab issue indicators (errors + warnings only).
   const tabBadges = useMemo(() => {
     const counts: Partial<Record<Tab, number>> = {};
@@ -128,6 +146,7 @@ export default function App() {
   return (
     <NavProvider value={nav}>
      <VisionProvider value={vision}>
+      <EditProvider value={openEditor}>
       <GeneratorProvider value={(req) => setGenerating(req ?? {})}>
       <svg width="0" height="0" aria-hidden style={{ position: "absolute" }}>
         <defs>
@@ -262,6 +281,13 @@ export default function App() {
           </div>
         </div>
 
+        {linkBroken && (
+          <div className="link-error-bar">
+            ⚠ This share link couldn't be decoded — it may have been truncated or corrupted. Showing your saved tokens instead.
+            <button className="btn small" onClick={() => setLinkBroken(false)}>Dismiss</button>
+          </div>
+        )}
+
         {/* The simulated canvas: a CVD filter here re-tints every view (palette,
             color space, components, contrast…) so the toggle is felt everywhere. */}
         <div className="app-canvas" style={vision !== "none" ? { filter: `url(#cvd-${vision})` } : undefined}>
@@ -289,16 +315,19 @@ export default function App() {
         {exporting && <ExportModal onClose={() => setExporting(false)} />}
         {newTypeStyle && <TypeStyleModal onClose={() => setNewTypeStyle(false)} />}
         {docsOpen && <DocsModal onClose={() => setDocsOpen(false)} />}
+        {editName && <TokenEditDialog name={editName} onClose={() => setEditName(null)} />}
         {createItem && (
           <CreateTokenModal
             initialName={createItem.key}
             kind={createItem.kind}
+            tier={createItem.tier}
             desc={createItem.desc}
             onClose={() => setCreateItem(null)}
           />
         )}
       </div>
       </GeneratorProvider>
+      </EditProvider>
      </VisionProvider>
     </NavProvider>
   );

@@ -186,17 +186,24 @@ select {
   flex: 1;
   overflow: auto;
   padding: 20px;
+  /* Keep scrolled-to rows clear of the edges (e.g. scrollIntoView focus). */
+  scroll-padding-block: 20px;
 }
+/* Padding lives on the scrolling element (.col), not this clipping parent, so
+   the scroll viewport fills the visible area and the first/last rows reach the
+   edges instead of being cropped behind an inset. */
 .content.split {
   display: grid;
   grid-template-columns: minmax(360px, 460px) 1fr;
-  gap: 20px;
-  padding: 20px;
+  gap: 0;
+  padding: 0;
   overflow: hidden;
 }
 .col {
   overflow: auto;
   min-height: 0;
+  padding: 20px;
+  scroll-padding-block: 20px;
 }
 /* Mobile-only control; hidden on desktop where both columns always show. */
 .split-toggle {
@@ -561,6 +568,17 @@ input[type="color"] {
 .issue .msg {
   margin-top: 2px;
 }
+.issue-swatches {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+}
+.issue-swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  border: 1px solid var(--hairline);
+}
 
 .pill-summary {
   display: flex;
@@ -638,6 +656,10 @@ input[type="color"] {
   flex-direction: column;
   overflow: hidden;
 }
+/* The single-token editor is a narrow panel — don't stretch it to 760px. */
+.modal.token-edit-modal {
+  width: min(440px, 100%);
+}
 .modal header {
   display: flex;
   align-items: center;
@@ -663,6 +685,39 @@ input[type="color"] {
   min-height: 280px;
   resize: vertical;
   line-height: 1.5;
+}
+
+.link-error-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background: color-mix(in oklab, var(--warning) 16%, var(--panel));
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  font-size: 13px;
+  flex-shrink: 0;
+}
+.link-error-bar .btn {
+  margin-left: auto;
+}
+
+/* Multi-file export (Tailwind project): one labelled block per file. */
+.export-files {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.export-file textarea {
+  min-height: 150px;
+}
+.export-file-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 12px;
+  color: var(--text-dim);
 }
 .hint {
   color: var(--text-faint);
@@ -1707,12 +1762,14 @@ input[type="color"] {
     flex-direction: column;
     overflow: auto;
     gap: 16px;
+    padding: 14px;
   }
   .content.split .col {
     overflow: visible;
     min-height: 0;
     width: 100%;
     flex: 0 0 auto;
+    padding: 0; /* the split container owns the padding when stacked */
   }
   .content { padding: 14px; }
 

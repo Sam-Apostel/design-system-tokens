@@ -1,5 +1,5 @@
 import type { Token } from "../types";
-import { stepOf } from "./groups";
+import { stepOf, stepRank } from "./groups";
 
 /**
  * Two-level grouping for the sidebar. Tokens are grouped by their first name
@@ -24,14 +24,6 @@ export interface TopGroup {
   subgroups: SubGroup[];
   /** Synthetic catch-all of one-off tokens — not a real, renamable prefix. */
   synthetic?: boolean;
-}
-
-const NUMERIC_RE = /^\d+$/;
-const NAMED_ORDER = ["3xs", "2xs", "xs", "s", "sm", "base", "m", "md", "default", "ml", "l", "lg", "xl", "2xl", "3xl"];
-function stepRank(step: string): number {
-  if (NUMERIC_RE.test(step)) return parseInt(step, 10);
-  const i = NAMED_ORDER.indexOf(step.toLowerCase());
-  return i >= 0 ? i : 500;
 }
 
 function sortTokens(a: Token, b: Token): number {

@@ -5,7 +5,7 @@ import { looksLikeJson, safeJsonCount, jsonToCss } from "../lib/importJson";
 import { useEscapeClose } from "../lib/useEscapeClose";
 
 export function ImportModal({ onClose }: { onClose: () => void }) {
-  const { dispatch } = useStore();
+  const { tokens, dispatch } = useStore();
   useEscapeClose(onClose);
   const [text, setText] = useState("");
   const [mode, setMode] = useState<"replace" | "merge">("merge");
@@ -14,7 +14,9 @@ export function ImportModal({ onClose }: { onClose: () => void }) {
 
   const isJson = looksLikeJson(text);
   const found = isJson ? safeJsonCount(text) : extractDeclarations(text).length;
-  const jsonError = isJson && text.trim().length > 1 && found === 0;
+  // Distinguish "valid JSON but nothing importable" from "not valid JSON".
+  const jsonParses = isJson && (() => { try { JSON.parse(text); return true; } catch { return false; } })();
+  const jsonInvalid = isJson && text.trim().length > 1 && !jsonParses;
 
   const readFile = (file: File) => {
     const reader = new FileReader();
@@ -23,6 +25,10 @@ export function ImportModal({ onClose }: { onClose: () => void }) {
   };
 
   const doImport = () => {
+    if (mode === "replace" && tokens.length > 0 &&
+        !confirm(`Replace all ${tokens.length} current token${tokens.length === 1 ? "" : "s"}? This can't be undone with ⌘Z.`)) {
+      return;
+    }
     const css = isJson ? jsonToCss(text) : text;
     dispatch({ type: mode === "replace" ? "load" : "merge", css });
     onClose();
@@ -73,7 +79,7 @@ export function ImportModal({ onClose }: { onClose: () => void }) {
 
           <textarea
             spellCheck={false}
-            placeholder={":root {\n  --color-brand-500: #3b82f6;\n}\n\n— or —\n\n{ \"color\": { \"brand\": { \"$value\": \"#3b82f6\" } } }"}
+            placeholder={":root {\n  --blue-500: #3b82f6;\n  --primary: var(--blue-500);\n}\n\n— or —\n\n{ \"blue\": { \"500\": { \"$value\": \"#3b82f6\" } } }"}
             value={text}
             onChange={(e) => setText(e.target.value)}
           />
@@ -89,7 +95,11 @@ export function ImportModal({ onClose }: { onClose: () => void }) {
             </label>
             <div className="spacer" />
             <span className="hint">
-              {jsonError ? "couldn't parse JSON" : `${isJson ? "JSON" : "CSS"} · ${found} token${found === 1 ? "" : "s"} detected`}
+              {jsonInvalid
+                ? "couldn't parse JSON"
+                : isJson && jsonParses && found === 0
+                  ? "valid JSON, but no importable tokens"
+                  : `${isJson ? "JSON" : "CSS"} · ${found} token${found === 1 ? "" : "s"} detected`}
             </span>
           </div>
         </div>

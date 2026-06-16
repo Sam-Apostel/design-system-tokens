@@ -63,11 +63,22 @@ export function DependencyGraph() {
 
   const active = useMemo(() => {
     if (!hover) return null;
+    // Trace the full lineage: everything the hovered group depends on
+    // (transitively) plus everything that transitively depends on it — not just
+    // immediate neighbours, so "trace it" actually traces the chain.
     const set = new Set<string>([hover]);
-    for (const e of edges) {
-      if (e.from === hover) set.add(e.to);
-      if (e.to === hover) set.add(e.from);
-    }
+    const walk = (dir: "dep" | "con") => {
+      const stack = [hover];
+      while (stack.length) {
+        const n = stack.pop()!;
+        for (const e of edges) {
+          if (dir === "dep" && e.from === n && !set.has(e.to)) { set.add(e.to); stack.push(e.to); }
+          if (dir === "con" && e.to === n && !set.has(e.from)) { set.add(e.from); stack.push(e.from); }
+        }
+      }
+    };
+    walk("dep");
+    walk("con");
     return set;
   }, [hover, edges]);
 

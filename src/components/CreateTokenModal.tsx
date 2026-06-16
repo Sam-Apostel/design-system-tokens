@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useStore } from "../store";
 import { resolve } from "../lib/value";
 import { parseColor, toCssDisplay } from "../lib/color";
@@ -15,11 +15,13 @@ import { useEscapeClose } from "../lib/useEscapeClose";
 export function CreateTokenModal({
   initialName,
   kind,
+  tier,
   desc,
   onClose,
 }: {
   initialName: string;
   kind: CreateKind;
+  tier?: "semantic" | "component";
   desc?: string;
   onClose: () => void;
 }) {
@@ -46,6 +48,16 @@ export function CreateTokenModal({
 
   const [source, setSource] = useState(candidates[0]?.name ?? "");
 
+  // Keep `source` valid as candidates change, and fall back to raw entry when
+  // there's nothing to alias (otherwise the alias mode is a dead end).
+  useEffect(() => {
+    if (candidates.length === 0) {
+      setMode("raw");
+    } else if (!candidates.some((c) => c.name === source)) {
+      setSource(candidates[0].name);
+    }
+  }, [candidates, source]);
+
   const cleanName = name.trim().replace(/^--/, "").replace(/\s+/g, "-");
   const exists = tokens.some((t) => t.name === cleanName);
   const value = mode === "alias" ? (source ? `var(--${source})` : "") : raw.trim();
@@ -66,7 +78,7 @@ export function CreateTokenModal({
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <header>
-          <h3>Create semantic token</h3>
+          <h3>Create {tier ?? "semantic"} token</h3>
           <div className="spacer" />
           <button className="btn ghost small" onClick={onClose}>✕</button>
         </header>

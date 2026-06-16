@@ -1,7 +1,11 @@
 import type { Token } from "../types";
 import { resolve, indexByName } from "./value";
-import { isColor, parseColor, colorDistance, toHex } from "./color";
+import { isColor, parseColor, colorDistance, toHex, type RGB } from "./color";
 import { auditableFailures } from "./contrastAudit";
+import { buildRamps } from "./groups";
+import { lightnessProfile } from "./rampMetrics";
+import { tierMap } from "./tiers";
+import { isAlias } from "./relations";
 
 export type LintSeverity = "error" | "warning" | "info";
 
@@ -171,6 +175,33 @@ export function lint(tokens: Token[], config: LintConfig = DEFAULT_LINT_CONFIG):
           tokens: [a.name, b.name],
         });
       }
+    }
+  }
+
+  // --- Ramp lightness should step evenly (perceptual, OKLab) ---------------
+  // A well-built color ramp moves through lightness in roughly even steps; a
+  // step that reverses direction or sits far off the even line reads as a kink.
+  // Reuses the same OKLab profile the Color space tab draws.
+  const tiers = tierMap(tokens);
+  const colorPrimitives = tokens.filter(
+    (t) => t.category === "color" && tiers.get(t.name) === "primitive" && !isAlias(t),
+  );
+  for (const ramp of buildRamps(colorPrimitives)) {
+    if (ramp.misc || ramp.tokens.length < 3) continue;
+    const rgbs: (RGB | null)[] = ramp.tokens.map((t) => {
+      const r = resolve(t, byName);
+      return r.finalRaw ? parseColor(r.finalRaw) : null;
+    });
+    if (rgbs.some((r) => !r)) continue;
+    const profile = lightnessProfile(rgbs as RGB[]);
+    const flaggedNames = profile.flatMap((p, i) => (p.flagged ? [ramp.tokens[i].name] : []));
+    if (flaggedNames.length) {
+      push({
+        severity: "warning",
+        rule: "ramp/uneven-lightness",
+        message: `Ramp "${ramp.key}" doesn't step evenly in lightness — ${flaggedNames.join(", ")} deviate from a linear OKLab ramp.`,
+        tokens: flaggedNames,
+      });
     }
   }
 

@@ -5,6 +5,15 @@ import { lint, summarize, DEFAULT_LINT_CONFIG, type LintIssue } from "../lib/lin
 import { tabForIssue } from "../lib/issueNav";
 import { duplicateValueGroups, duplicateSummary, type DuplicateGroup } from "../lib/duplicates";
 import { parseColor, toCssDisplay } from "../lib/color";
+import { resolve } from "../lib/value";
+
+// Rules whose tokens are colors worth previewing inline as swatches.
+const COLOR_SWATCH_RULES = new Set([
+  "duplicate/near-color",
+  "contrast/insufficient",
+  "ramp/uneven-lightness",
+  "assignment/prefer-alias",
+]);
 
 export function LintView() {
   const { tokens, byName } = useStore();
@@ -17,6 +26,21 @@ export function LintView() {
   const targetFor = (i: LintIssue) => {
     if (!i.tokens[0]) return null;
     return { tab: tabForIssue(i, byName), token: i.tokens[0] };
+  };
+
+  // Resolved swatches for a color-related issue, so "perceptually identical" and
+  // contrast pairs can be seen, not just read.
+  const swatchesFor = (i: LintIssue): string[] => {
+    if (!COLOR_SWATCH_RULES.has(i.rule)) return [];
+    const out: string[] = [];
+    for (const name of i.tokens) {
+      const t = byName.get(name);
+      if (!t) continue;
+      const r = resolve(t, byName);
+      const rgb = r.finalRaw ? parseColor(r.finalRaw) : null;
+      if (rgb) out.push(toCssDisplay(rgb));
+    }
+    return out.slice(0, 6);
   };
 
   return (
@@ -34,6 +58,7 @@ export function LintView() {
       ) : (
         issues.map((i) => {
           const target = targetFor(i);
+          const swatches = swatchesFor(i);
           return (
             <div
               className={`issue ${target ? "clickable" : ""}`}
@@ -45,6 +70,13 @@ export function LintView() {
               <div className="body">
                 <div className="rule">{i.rule}</div>
                 <div className="msg">{i.message}</div>
+                {swatches.length > 0 && (
+                  <div className="issue-swatches">
+                    {swatches.map((c, k) => (
+                      <span key={k} className="issue-swatch" style={{ background: c }} title={c} />
+                    ))}
+                  </div>
+                )}
               </div>
               {target && <span className="goto">Go to {target.tab} →</span>}
             </div>
@@ -84,6 +116,7 @@ export function LintView() {
           <li><span className="mono">assignment/prefer-alias</span> — semantic tokens reference primitives.</li>
           <li><span className="mono">duplicate/identical-value</span> — flags shared literals.</li>
           <li><span className="mono">duplicate/near-color</span> — flags perceptually near-identical colors.</li>
+          <li><span className="mono">ramp/uneven-lightness</span> — color ramps whose OKLab lightness doesn't step evenly.</li>
           <li><span className="mono">contrast/insufficient</span> — text-on-surface pairs below WCAG AA (4.5:1).</li>
         </ul>
       </div>

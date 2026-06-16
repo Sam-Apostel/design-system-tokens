@@ -89,10 +89,11 @@ export function tierOf(token: Token, byName?: Map<string, Token>, seen = new Set
   if (isPrimitiveName(token.name, segs)) return "primitive";
   if (SEMANTIC_WORDS.has(segs[0])) return "semantic";
 
-  // Structural: a raw value with no role/component name is a leaf primitive
-  // only if it truly looks foundational; otherwise treat unknown raws as
-  // semantic (they carry meaning, e.g. a one-off brand hex).
-  if (token.value.kind === "raw") return "semantic";
+  // Structural: a raw, context-free literal that matched no component/semantic
+  // role word is a leaf primitive (role-named raws like `brand`/`surface` were
+  // already caught above). This is what makes unprefixed ramps like `mint-500`
+  // or one-off raws read as primitives instead of being mislabeled semantic.
+  if (token.value.kind === "raw") return "primitive";
 
   if (!byName) return "semantic";
   if (seen.has(token.name)) return "semantic"; // cycle guard

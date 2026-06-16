@@ -127,8 +127,13 @@ function mutate(tokens: Token[], action: Action): Token[] {
       const remap = (n: string) => (n === p ? np : np + n.slice(p.length));
       const dH = action.hueShift ?? 0;
       const dL = action.lightShift ?? 0;
+      // Names that will exist after cloning: pre-existing tokens plus every
+      // in-group clone we're about to add. A ref is only remapped to its clone
+      // when that clone will actually exist — otherwise it would dangle.
+      const willExist = new Set(tokens.map((t) => t.name));
+      for (const t of tokens) if (inGroup(t.name)) willExist.add(remap(t.name));
       const shiftVal = (v: TokenValue): TokenValue => {
-        if (v.kind === "ref") return inGroup(v.ref) ? { ...v, ref: remap(v.ref) } : v;
+        if (v.kind === "ref") return inGroup(v.ref) && willExist.has(remap(v.ref)) ? { ...v, ref: remap(v.ref) } : v;
         if (!dH && !dL) return v;
         const shifted = shiftColor(v.raw, dH, dL);
         return shifted ? { kind: "raw", raw: shifted } : v;
@@ -162,11 +167,20 @@ function mutate(tokens: Token[], action: Action): Token[] {
       );
 
     case "relink": {
+      const idx = indexByName(tokens);
       const next = tokens.map((t) => {
         if (t.id !== action.id) return t;
         if (action.ref === null) {
-          const r = resolve(t, indexByName(tokens));
-          return { ...t, value: { kind: "raw" as const, raw: r.finalRaw ?? "" } };
+          // Unlink → resolve to a literal. Do it per mode so a multi-mode token
+          // doesn't end up half-aliased (active literal, other modes still refs).
+          const unlink = (v: TokenValue): TokenValue =>
+            v.kind === "ref"
+              ? { kind: "raw", raw: resolve({ ...t, value: v }, idx).finalRaw ?? "" }
+              : v;
+          const modes = t.modes
+            ? Object.fromEntries(Object.entries(t.modes).map(([m, v]) => [m, unlink(v)]))
+            : t.modes;
+          return { ...t, value: unlink(t.value), modes };
         }
         const fallback = t.value.kind === "ref" ? t.value.fallback : undefined;
         return { ...t, value: { kind: "ref" as const, ref: action.ref, fallback } };
@@ -280,36 +294,56 @@ function removeModeSnap(p: Snap, name: string): Snap {
 
 function mergeSnap(p: Snap, css: string): Snap {
   const inc = expandLightDark(tokensFromCss(css, p.tokens.length));
-  const multi = p.modeList.length > 1 || inc.modeList.length > 1;
+  const incMulti = inc.modeList.length > 1;
+  const multi = p.modeList.length > 1 || incMulti;
   const modeList = multi ? ["light", "dark"] : ["base"];
   const active = multi ? (modeList.includes(p.activeMode) ? p.activeMode : "light") : "base";
-  const ensure = (toks: Token[]) =>
+
+  // Give existing tokens full per-mode coverage when the result is multi-mode.
+  const ensureExisting = (toks: Token[]) =>
     multi
       ? toks.map((t) => (t.modes && t.modes.light !== undefined ? t : { ...t, modes: { light: t.value, dark: t.value } }))
       : toks.map((t) => (t.modes ? { ...t, modes: undefined } : t));
 
-  const byName = new Map(ensure(p.tokens).map((t) => [t.name, t]));
+  const byName = new Map(ensureExisting(p.tokens).map((t) => [t.name, t]));
   let order = byName.size;
-  for (const t of ensure(inc.tokens)) {
+  for (const t of inc.tokens) {
     const ex = byName.get(t.name);
-    if (ex) byName.set(t.name, { ...ex, value: t.value, modes: t.modes });
-    else byName.set(t.name, { ...t, order: order++ });
+    if (ex) {
+      if (multi) {
+        // Only overwrite the modes the incoming file actually specifies — a
+        // single-mode import must NOT clobber the existing token's other modes.
+        const incModes = incMulti ? (t.modes ?? { light: t.value, dark: t.value }) : { [active]: t.value };
+        byName.set(t.name, { ...ex, modes: { ...(ex.modes ?? {}), ...incModes } });
+      } else {
+        byName.set(t.name, { ...ex, value: t.value, modes: undefined });
+      }
+    } else {
+      const modes = multi ? (incMulti ? (t.modes ?? { light: t.value, dark: t.value }) : { light: t.value, dark: t.value }) : undefined;
+      byName.set(t.name, { ...t, modes, order: order++ });
+    }
   }
   let tokens = classifyAll([...byName.values()]);
   tokens = syncModes(remapToMode(tokens, active), modeList, active);
   return { tokens, modeList, activeMode: active };
 }
 
+/** Keep the user in their current mode across undo/redo when it still exists. */
+function reMode(snap: Snap, mode: string): Snap {
+  if (mode === snap.activeMode || !snap.modeList.includes(mode)) return snap;
+  return { ...snap, tokens: classifyAll(remapToMode(snap.tokens, mode)), activeMode: mode };
+}
+
 function reducer(state: HState, action: Action): HState {
   switch (action.type) {
     case "undo": {
       if (!state.past.length) return state;
-      const prev = state.past[state.past.length - 1];
+      const prev = reMode(state.past[state.past.length - 1], state.present.activeMode);
       return { past: state.past.slice(0, -1), present: prev, future: [state.present, ...state.future] };
     }
     case "redo": {
       if (!state.future.length) return state;
-      const next = state.future[0];
+      const next = reMode(state.future[0], state.present.activeMode);
       return { past: [...state.past, state.present], present: next, future: state.future.slice(1) };
     }
     case "setMode": {
@@ -352,6 +386,11 @@ function loadPersisted(): Snap | null {
     if (!raw) return null;
     const snap = JSON.parse(raw) as Snap;
     if (!snap || !Array.isArray(snap.tokens) || !Array.isArray(snap.modeList)) return null;
+    // Guard against a persisted activeMode that isn't in modeList (older/corrupt
+    // snapshots) — fall back to the first mode rather than highlighting a tab
+    // that doesn't exist.
+    if (!snap.modeList.length) return null;
+    if (!snap.modeList.includes(snap.activeMode)) snap.activeMode = snap.modeList[0];
     return snap;
   } catch {
     return null;

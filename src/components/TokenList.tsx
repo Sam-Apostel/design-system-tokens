@@ -28,7 +28,28 @@ export function TokenList({ category, title, onAdd, addLabel }: Props) {
   const [dupGroup, setDupGroup] = useState<{ prefix: string; tokens: Token[] } | null>(null);
 
   const deleteGroup = (prefix: string, count: number) => {
-    if (confirm(`Delete all ${count} token${count === 1 ? "" : "s"} under --${prefix}-*? Aliases pointing here will break.`)) {
+    // Count aliases OUTSIDE the group that reference a token inside it, so the
+    // warning quantifies what will break rather than vaguely cautioning.
+    const inGroup = (n: string) => n === prefix || n.startsWith(prefix + "-");
+    const groupNames = new Set(tokens.filter((t) => inGroup(t.name)).map((t) => t.name));
+    let inbound = 0;
+    for (const t of tokens) {
+      if (inGroup(t.name)) continue;
+      const refs: string[] = [];
+      const collect = (v: Token["value"]) => {
+        if (v.kind === "ref") refs.push(v.ref);
+        else if (v.raw.includes("var(")) {
+          const re = /var\(\s*--([A-Za-z0-9-_]+)/g;
+          let m: RegExpExecArray | null;
+          while ((m = re.exec(v.raw)) !== null) refs.push(m[1]);
+        }
+      };
+      collect(t.value);
+      if (t.modes) for (const v of Object.values(t.modes)) collect(v);
+      if (refs.some((r) => groupNames.has(r))) inbound++;
+    }
+    const warn = inbound > 0 ? ` ${inbound} alias${inbound === 1 ? "" : "es"} elsewhere point into it and will break.` : "";
+    if (confirm(`Delete all ${count} token${count === 1 ? "" : "s"} under --${prefix}-*?${warn}`)) {
       dispatch({ type: "removeGroup", prefix });
     }
   };

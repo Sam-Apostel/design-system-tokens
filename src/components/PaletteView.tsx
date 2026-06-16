@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useStore } from "../store";
-import { useNav } from "../nav";
+import { useEditToken } from "../editToken";
 import { resolve } from "../lib/value";
 import { parseColor, toCssDisplay, toHex, rgbToOklab } from "../lib/color";
 import { buildRamps, stepOf } from "../lib/groups";
@@ -10,20 +10,20 @@ import type { Token } from "../types";
 
 export function PaletteView() {
   const { tokens, byName } = useStore();
-  const { navigate } = useNav();
+  const openEditor = useEditToken();
 
-  const colors = tokens.filter((t) => t.category === "color");
-  const base = colors.filter((t) => !isAlias(t));
-  const semantic = colors.filter((t) => isAlias(t));
+  // The palette shows the raw primitive ramps only — the source-of-truth colors.
+  // Alias/semantic tokens live in the Semantics tab; mixing them here just made
+  // the palette noisier (and is what the swatch step labels assume).
+  const base = tokens.filter((t) => t.category === "color" && !isAlias(t));
   const unused = useMemo(() => unusedBaseColors(tokens), [tokens]);
   const issues = useMemo(() => issuesByToken(lint(tokens)), [tokens]);
 
-  if (colors.length === 0) {
-    return <div className="empty">No color tokens detected. Import some CSS to begin.</div>;
+  if (base.length === 0) {
+    return <div className="empty">No raw color tokens detected. Import some CSS to begin.</div>;
   }
 
   const baseRamps = buildRamps(base);
-  const semanticRamps = buildRamps(semantic);
 
   const Swatch = ({ t, fullName }: { t: Token; fullName?: boolean }) => {
     const r = resolve(t, byName);
@@ -34,11 +34,10 @@ export function PaletteView() {
     return (
       <div
         className={`swatch-card ${isUnused ? "unused" : ""}`}
-        title={`--${t.name}${isUnused ? " · not used by any semantic token" : ""}`}
-        onClick={() => navigate("colorspace", t.name)}
+        title={`--${t.name}${isUnused ? " · not used by any semantic token" : ""} · click to edit`}
+        onClick={() => openEditor(t.name)}
       >
         <div className="chip" style={{ background: rgb ? toCssDisplay(rgb) : "#000" }}>
-          {isAlias(t) && <span className="alias">alias</span>}
           {isUnused && <span className="unused-tag">unused</span>}
           {sev && <span className={`chip-dot ${sev}`} />}
         </div>
@@ -66,8 +65,8 @@ export function PaletteView() {
           )}
         </div>
         <p className="hint" style={{ marginTop: -4 }}>
-          Raw color values. Dimmed swatches marked <b>unused</b> aren't referenced by any token in the
-          semantic layer below.
+          Raw color values — your primitive ramps. Dimmed swatches marked <b>unused</b> aren't referenced
+          by any semantic (alias) token. Click a swatch to edit it.
         </p>
         {baseRamps.map((ramp) => (
           <div className={`ramp ${ramp.misc ? "ramp-misc" : ""}`} key={ramp.key}>
@@ -79,38 +78,6 @@ export function PaletteView() {
             </div>
           </div>
         ))}
-      </div>
-
-      <div className="layer-divider">
-        <span>applied to ↓</span>
-      </div>
-
-      <div className="layer-section">
-        <div className="section-title">
-          Semantic layer
-          <span className="count">({semantic.length} aliases)</span>
-        </div>
-        <p className="hint" style={{ marginTop: -4 }}>
-          Tokens that reference the base palette via <span className="mono">var(--…)</span>. These are
-          what product code should consume.
-        </p>
-        {semantic.length === 0 ? (
-          <div className="empty">
-            No semantic color tokens yet. Alias a base color (e.g.
-            <span className="mono"> --color-brand: var(--colors-blue-500)</span>) to build your upper layer.
-          </div>
-        ) : (
-          semanticRamps.map((ramp) => (
-            <div className="ramp" key={ramp.key}>
-              <h4>{ramp.key}</h4>
-              <div className="swatches">
-                {ramp.tokens.map((t) => (
-                  <Swatch key={t.id} t={t} />
-                ))}
-              </div>
-            </div>
-          ))
-        )}
       </div>
     </div>
   );

@@ -22,8 +22,8 @@ export function DocsModal({ onClose }: { onClose: () => void }) {
             Raw, context-free values: color ramps and a spacing scale. They describe <i>what a value is</i>,
             not where it's used. Names are descriptive, not meaningful.
           </p>
-          <pre className="code-block">{`--colors-blue-500: #3b82f6;
---colors-gray-900: #111827;
+          <pre className="code-block">{`--blue-500: #3b82f6;
+--gray-900: #111827;
 --space-4: 1rem;
 --radius-2: 0.5rem;`}</pre>
 
@@ -33,12 +33,12 @@ export function DocsModal({ onClose }: { onClose: () => void }) {
             <span className="mono">text</span>, <span className="mono">border</span>, <span className="mono">primary</span> —
             so swapping the underlying primitive (or theming) only touches this layer.
           </p>
-          <pre className="code-block">{`--surface: var(--colors-gray-50);
---surface-raised: var(--colors-white);
---text: var(--colors-gray-900);
---text-muted: var(--colors-gray-500);
---border: var(--colors-gray-200);
---primary: var(--colors-blue-500);`}</pre>
+          <pre className="code-block">{`--surface: var(--gray-50);
+--surface-raised: var(--white);
+--text: var(--gray-900);
+--text-muted: var(--gray-500);
+--border: var(--gray-200);
+--primary: var(--blue-500);`}</pre>
 
           <h4>3 · Component tokens (scope)</h4>
           <p>

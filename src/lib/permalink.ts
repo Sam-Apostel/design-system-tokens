@@ -53,3 +53,13 @@ export function cssFromHash(): string | null {
   }
   return null;
 }
+
+/** True when the URL carries a share hash but it couldn't be decoded (truncated
+ *  by a URL filter, corrupted on copy, etc.) — lets the app say so rather than
+ *  silently opening empty. */
+export function hashDecodeFailed(): boolean {
+  if (typeof window === "undefined") return false;
+  const h = window.location.hash;
+  if (!h.startsWith(PREFIX) && !h.startsWith(LEGACY_PREFIX)) return false;
+  return cssFromHash() === null;
+}

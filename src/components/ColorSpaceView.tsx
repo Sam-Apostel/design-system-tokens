@@ -154,10 +154,26 @@ export function ColorSpaceView() {
   const [mode, setMode] = useState<PlotMode>("ab");
   const [showLinks, setShowLinks] = useState(true);
   const [fit, setFit] = useState(true);
+  // The painted color-space slice is a single 2D cross-section at one fixed third
+  // dimension, while every dot has its own — so dots legitimately sit "off" the
+  // slice's color. It's a frequent source of confusion, so it's off by default;
+  // turn it on deliberately when reading a single plane.
+  const [showSlice, setShowSlice] = useState(false);
   const [focusRamp, setFocusRamp] = useState<string | null>(null);
   const [hoverRamp, setHoverRamp] = useState<string | null>(null);
   const [preview, setPreview] = useState<Preview>(null);
   const emphasize = hoverRamp ?? focusRamp;
+  const heroRef = useRef<HTMLDivElement>(null);
+
+  // Select a scale: focus it for editing and bring the big map into view so the
+  // cause (clicking a card) and effect (its stops become draggable) are visible.
+  const selectRamp = (key: string) => {
+    setFocusRamp((cur) => {
+      const next = cur === key ? null : key;
+      if (next) requestAnimationFrame(() => heroRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" }));
+      return next;
+    });
+  };
 
   const idToken = useMemo(() => new Map(tokens.map((t) => [t.id, t])), [tokens]);
 
@@ -274,6 +290,10 @@ export function ColorSpaceView() {
           <input type="checkbox" checked={showLinks} onChange={(e) => setShowLinks(e.target.checked)} />
           Connect ramps
         </label>
+        <label className="toggle" title="Paint the color-space cross-section behind the dots (one fixed third dimension)">
+          <input type="checkbox" checked={showSlice} onChange={(e) => setShowSlice(e.target.checked)} />
+          Gamut slice
+        </label>
         {totalUneven > 0 && (
           <button className="btn small" onClick={fixAll} title="Snap every flagged step onto its even-lightness ideal">
             Fix all {totalUneven} uneven
@@ -285,13 +305,14 @@ export function ColorSpaceView() {
         <div className="empty">No resolvable colors to plot.</div>
       ) : (
         <>
-          <div className="plot-hero">
+          <div className="plot-hero" ref={heroRef}>
             <Plot
               title="All colors"
               items={items}
               space={space}
               mode={mode}
               showLinks={showLinks}
+              showSlice={showSlice}
               axis={axis}
               fit={fit}
               emphasize={emphasize}
@@ -335,7 +356,7 @@ export function ColorSpaceView() {
                     <div
                       key={key}
                       className={`plot-cell ${isFocused ? "focused" : ""}`}
-                      onClick={() => setFocusRamp((cur) => (cur === key ? null : key))}
+                      onClick={() => selectRamp(key)}
                       onMouseEnter={() => setHoverRamp(key)}
                       onMouseLeave={() => setHoverRamp((h) => (h === key ? null : h))}
                     >
@@ -345,6 +366,7 @@ export function ColorSpaceView() {
                         space={space}
                         mode={mode}
                         showLinks={showLinks}
+                        showSlice={showSlice}
                         axis={axis}
                         fit={fit}
                         metrics={metrics}
@@ -385,11 +407,13 @@ export function ColorSpaceView() {
           <div className="card" style={{ marginTop: 24 }}>
             <div className="section-title">How to read this</div>
             <p className="hint" style={{ marginTop: 0 }}>
-              The plot background paints the selected color space as a slice (its label shows the fixed
-              third dimension). Each dot is a color token, filled with its real color. Select a scale to
-              make its stops <b>draggable</b> — move them on the plane to retune hue/chroma/lightness, or
-              drag points on the <b>lightness profile</b> to set lightness directly. One undo step per drag.
-              Dots <span style={{ color: "var(--warning)" }}>ringed amber</span> deviate from an even ramp.
+              Each dot is a color token, filled with its real color; ramps are linked in order. Select a
+              scale (below or by clicking the big map) to make its stops <b>draggable</b> — move them on the
+              plane to retune hue/chroma/lightness, or drag points on the <b>lightness profile</b> to set
+              lightness directly. One undo step per drag. Dots
+              <span style={{ color: "var(--warning)" }}> ringed amber</span> deviate from an even ramp.
+              Turn on <b>Gamut slice</b> to paint the color space behind the dots — note it's a single 2D
+              cross-section (one fixed third dimension), so dots can sit over a non-matching color.
             </p>
           </div>
         </>
@@ -404,6 +428,7 @@ function Plot({
   space,
   mode,
   showLinks,
+  showSlice,
   axis,
   fit,
   big,
@@ -422,6 +447,7 @@ function Plot({
   space: ColorSpace;
   mode: PlotMode;
   showLinks: boolean;
+  showSlice?: boolean;
   axis: { x: string; y: string };
   fit: boolean;
   big?: boolean;
@@ -448,7 +474,11 @@ function Plot({
   // Paint the color-space slice as a background image (out-of-gamut = transparent).
   const held = useMemo(() => heldFor(items, space, mode), [items, space, mode]);
   const bgUrl = useMemo(() => {
-    const res = big ? 168 : 88;
+    if (!showSlice) return null;
+    // Render close to the displayed pixel size (capped) so the slice isn't a
+    // blurry/blocky upscale of a tiny canvas.
+    const dpr = typeof window !== "undefined" ? Math.min(2, window.devicePixelRatio || 1) : 1;
+    const res = Math.round((big ? 300 : 120) * dpr);
     const dxr = bounds.maxX - bounds.minX;
     const dyr = bounds.maxY - bounds.minY;
     const cnv = document.createElement("canvas");
@@ -473,7 +503,7 @@ function Plot({
     }
     ctx.putImageData(img, 0, 0);
     return cnv.toDataURL();
-  }, [space, mode, bounds, held, big]);
+  }, [space, mode, bounds, held, big, showSlice]);
 
   // Reset the view whenever what's plotted changes.
   useEffect(() => {
@@ -594,9 +624,11 @@ function Plot({
         <text x={14} y={S / 2} textAnchor="middle" fontSize="12" fill="var(--text-faint)" transform={`rotate(-90 14 ${S / 2})`} style={{ pointerEvents: "none" }}>
           {axis.y}
         </text>
-        <text x={PAD + 6} y={PAD + 15} fontSize="11" fontFamily="var(--mono)" fill="var(--text)" opacity="0.65" style={{ pointerEvents: "none" }}>
-          {sliceLabel(space, mode, held)}
-        </text>
+        {showSlice && (
+          <text x={PAD + 6} y={PAD + 15} fontSize="11" fontFamily="var(--mono)" fill="var(--text)" opacity="0.65" style={{ pointerEvents: "none" }}>
+            {sliceLabel(space, mode, held)}
+          </text>
+        )}
         {link?.map(({ ramp, pts }, i) => {
           const dim = emphasize != null && ramp !== emphasize;
           return (

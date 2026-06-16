@@ -33,9 +33,12 @@ export function groupKeyOf(name: string): string {
 }
 
 const NUMERIC_RE = /^\d+$/;
-const NAMED_ORDER = ["3xs", "2xs", "xs", "sm", "base", "md", "default", "lg", "xl", "2xl", "3xl", "4xl", "5xl"];
+// Canonical scale-step order, shared by every view that sorts ramp steps (the
+// palette, the color-space scales, and the sidebar tree) so a ramp lines up the
+// same way everywhere. Includes both t-shirt sizes and single-letter variants.
+export const NAMED_ORDER = ["3xs", "2xs", "xs", "s", "sm", "base", "m", "md", "default", "ml", "l", "lg", "xl", "2xl", "3xl", "4xl", "5xl"];
 
-function stepRank(step: string): number {
+export function stepRank(step: string): number {
   if (NUMERIC_RE.test(step)) return parseInt(step, 10);
   const i = NAMED_ORDER.indexOf(step.toLowerCase());
   return i >= 0 ? i * 100 : 1e9; // unknowns sink to the end

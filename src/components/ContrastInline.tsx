@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import type { Token } from "../types";
 import { useStore } from "../store";
-import { rateContrast, toHex, type RGB } from "../lib/color";
+import { rateContrast, compositeOver, toHex, type RGB } from "../lib/color";
 import { colorRoles, isSurfaceName } from "../lib/contrastAudit";
 
 const WHITE: RGB = { r: 1, g: 1, b: 1, a: 1 };
@@ -44,9 +44,13 @@ export function ContrastInline({ token, rgb }: { token: Token; rgb: RGB }) {
       <div className="ci-row">
         {pairs.map((p) => {
           const cls = p.rating.aaaNormal ? "aaa" : p.rating.aaNormal ? "aa" : p.rating.aaLargeOrAaaNormal ? "large" : "fail";
+          // Show what the eye actually sees: a translucent surface over the page,
+          // and the text over that surface — same compositing the rating uses.
+          const bgShown = compositeOver(p.bg, WHITE);
+          const fgShown = compositeOver(p.fg, bgShown);
           return (
             <div key={p.label} className="ci-chip" title={`${p.label} — ${p.rating.ratio.toFixed(2)}:1 (${p.rating.label})`}>
-              <span className="ci-sample" style={{ background: toHex({ ...p.bg, a: 1 }), color: toHex({ ...p.fg, a: 1 }) }}>Aa</span>
+              <span className="ci-sample" style={{ background: toHex(bgShown), color: toHex(fgShown) }}>Aa</span>
               <span className={`ci-score ${cls}`}>{p.rating.ratio.toFixed(1)}</span>
               <span className="ci-label mono">{p.label.replace(/^color-/, "")}</span>
             </div>
