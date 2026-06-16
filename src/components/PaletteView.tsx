@@ -70,7 +70,7 @@ export function PaletteView() {
           semantic layer below.
         </p>
         {baseRamps.map((ramp) => (
-          <div className="ramp" key={ramp.key}>
+          <div className={`ramp ${ramp.misc ? "ramp-misc" : ""}`} key={ramp.key}>
             <h4>{ramp.misc ? "other (one-offs)" : ramp.key}</h4>
             <div className="swatches">
               {ramp.tokens.map((t) => (

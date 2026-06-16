@@ -424,6 +424,16 @@ input[type="color"] {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* One-offs group: wider cards so each full token name reads cleanly (the step
+   number is meaningless for a grab-bag, so the name is what helps). */
+.ramp-misc .swatch-card {
+  width: 136px;
+}
+.ramp-misc .swatch-card .meta .s {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.3;
+}
 
 /* ---------- Spacing view ---------- */
 
