@@ -788,6 +788,59 @@ input[type="color"] {
   .group-kebab { opacity: 1; }
 }
 
+/* Inline contrast feedback in the token editor */
+.ci {
+  border-top: 1px solid var(--border-soft);
+  padding-top: 10px;
+}
+.ci-head {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-faint);
+  margin-bottom: 8px;
+}
+.ci-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.ci-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  min-width: 54px;
+}
+.ci-sample {
+  width: 100%;
+  height: 34px;
+  border-radius: 6px;
+  border: 1px solid var(--hairline);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+}
+.ci-score {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+}
+.ci-score.aaa { color: var(--success); }
+.ci-score.aa { color: var(--success); }
+.ci-score.large { color: var(--warning); }
+.ci-score.fail { color: var(--danger); }
+.ci-label {
+  font-size: 9.5px;
+  color: var(--text-faint);
+  max-width: 64px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* Duplicate-group preview */
 .dup-preview {
   display: flex;

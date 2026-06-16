@@ -4,6 +4,7 @@ import { useStore } from "../store";
 import { resolve } from "../lib/value";
 import { parseColor, toCssDisplay } from "../lib/color";
 import { OklchEditor } from "./OklchEditor";
+import { ContrastInline } from "./ContrastInline";
 
 /** Inline editor for a single token: rename, edit value, relink alias. */
 export function TokenEditor({ token, onClose }: { token: Token; onClose: () => void }) {
@@ -100,6 +101,8 @@ export function TokenEditor({ token, onClose }: { token: Token; onClose: () => v
           </button>
         </div>
       )}
+
+      {rgb && <ContrastInline token={token} rgb={rgb} />}
 
       <div className="actions">
         <button className="btn small" onClick={onClose}>

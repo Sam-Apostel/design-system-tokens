@@ -18,6 +18,17 @@ const TEXT_RE = /(^|-)(text|fg|foreground|content|ink|label|heading|body|link)(-
 const SURFACE_RE = /(^|-)(bg|background|surface|card|canvas|paper|base|panel|sheet)(-|$)/i;
 const INVERSE_RE = /(inverse|invert|on-|^on$|-on$)/i;
 
+export const isTextName = (n: string) => TEXT_RE.test(n);
+export const isSurfaceName = (n: string) => SURFACE_RE.test(n);
+
+/** The color tokens that read as text/foreground and as surface/background. */
+export function colorRoles(tokens: Token[], byName: Map<string, Token>) {
+  return {
+    texts: entries(tokens, byName, TEXT_RE),
+    surfaces: entries(tokens, byName, SURFACE_RE),
+  };
+}
+
 function entries(tokens: Token[], byName: Map<string, Token>, re: RegExp): ColorEntry[] {
   const out: ColorEntry[] = [];
   for (const t of tokens) {
