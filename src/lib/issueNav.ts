@@ -6,6 +6,7 @@ const TAB_FOR_CATEGORY: Record<string, Tab> = {
   color: "palette",
   spacing: "spacing",
   typography: "typography",
+  motion: "motion",
   other: "tokens",
 };
 

@@ -4,20 +4,21 @@ import { exportTokens, FORMATS, type ExportFormat } from "../lib/exporters";
 import { useEscapeClose } from "../lib/useEscapeClose";
 
 export function ExportModal({ onClose }: { onClose: () => void }) {
-  const { tokens, modeList } = useStore();
+  const { tokens, byName, modeList } = useStore();
   useEscapeClose(onClose);
   const [format, setFormat] = useState<ExportFormat>("css");
   const [selector, setSelector] = useState(":root");
   const [grouped, setGrouped] = useState(true);
   const [lightDark, setLightDark] = useState(true);
+  const [resolveVals, setResolveVals] = useState(false);
   const [copied, setCopied] = useState(false);
 
   const meta = FORMATS.find((f) => f.id === format)!;
   const multiMode = modeList.length > 1;
   const canLightDark = modeList.includes("light") && modeList.includes("dark");
   const code = useMemo(
-    () => exportTokens(tokens, format, { selector, groupBySection: grouped, lightDark }, modeList),
-    [tokens, format, selector, grouped, lightDark, modeList],
+    () => exportTokens(tokens, format, { selector, groupBySection: grouped, lightDark }, modeList, byName, { resolve: resolveVals }),
+    [tokens, format, selector, grouped, lightDark, modeList, byName, resolveVals],
   );
 
   const copy = async () => {
@@ -75,7 +76,18 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
               Use <span className="mono">&nbsp;light-dark()</span>&nbsp; (single :root, follows color-scheme)
             </label>
           )}
-          {multiMode && format !== "css" && (
+          {format === "classes" && (
+            <>
+              <label className="toggle" style={{ marginBottom: 8 }}>
+                <input type="checkbox" checked={resolveVals} onChange={(e) => setResolveVals(e.target.checked)} />
+                Resolve values <span className="hint" style={{ marginLeft: 6 }}>(off = keep <span className="mono">var(--token)</span> references)</span>
+              </label>
+              <p className="hint" style={{ marginTop: 0 }}>
+                One class per group whose token leaves map to CSS properties (e.g. <span className="mono">body-default-font-size</span> → <span className="mono">.body-default {"{"} font-size {"}"}</span>).
+              </p>
+            </>
+          )}
+          {multiMode && format !== "css" && format !== "classes" && (
             <p className="hint" style={{ marginTop: 0 }}>This format exports the active mode's values only.</p>
           )}
           {format === "css" && multiMode && !(canLightDark && lightDark) && (

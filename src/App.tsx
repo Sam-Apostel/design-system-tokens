@@ -12,6 +12,7 @@ import { TokenList } from "./components/TokenList";
 import { PaletteView } from "./components/PaletteView";
 import { SpacingView } from "./components/SpacingView";
 import { ShadowsView } from "./components/ShadowsView";
+import { MotionView } from "./components/MotionView";
 import { TypographyView } from "./components/TypographyView";
 import { ColorSpaceView } from "./components/ColorSpaceView";
 import { ContrastView } from "./components/ContrastView";
@@ -37,6 +38,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "graph", label: "Graph" },
   { id: "spacing", label: "Spacing" },
   { id: "shadows", label: "Shadows" },
+  { id: "motion", label: "Motion" },
   { id: "typography", label: "Typography" },
   { id: "components", label: "Components" },
   { id: "checks", label: "Checks" },
@@ -349,6 +351,14 @@ function Main({
         <div className="content">
           <div style={{ maxWidth: 1000, margin: "0 auto" }}>
             <ShadowsView />
+          </div>
+        </div>
+      );
+    case "motion":
+      return (
+        <div className="content">
+          <div style={{ maxWidth: 1000, margin: "0 auto" }}>
+            <MotionView />
           </div>
         </div>
       );

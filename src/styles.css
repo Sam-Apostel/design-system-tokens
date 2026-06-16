@@ -2043,13 +2043,13 @@ input[type="color"] {
   color: var(--cp-muted);
 }
 .cp-type p { margin: 0; }
-.cp-display { font-size: var(--text-display-size, var(--page-title-font-size, 1.875rem)); font-weight: var(--text-display-weight, var(--page-title-font-weight, 700)); line-height: var(--text-display-leading, var(--page-title-line-height, 1.2)); letter-spacing: var(--text-display-tracking, var(--page-title-letter-spacing, -0.025em)); }
-.cp-title { font-size: var(--text-title-size, var(--dialog-title-font-size, 1.5rem)); font-weight: var(--text-title-weight, 600); line-height: var(--text-title-leading, 1.1); letter-spacing: var(--text-title-tracking, -0.02em); }
-.cp-heading { font-size: var(--text-heading-size, var(--notification-title-font-size, var(--tabs-label-font-size, 1.25rem))); font-weight: var(--text-heading-weight, 700); line-height: var(--text-heading-leading, 1.25); }
+.cp-display { font-size: var(--text-display-size, var(--page-title-font-size, 1.875rem)); font-weight: var(--text-display-weight, var(--page-title-font-weight, 700)); line-height: var(--text-display-leading, var(--page-title-line-height, 1.2)); letter-spacing: var(--text-display-tracking, var(--page-title-letter-spacing, -0.025em)); text-transform: var(--text-display-transform, var(--page-title-text-transform, var(--display-text-transform, none))); }
+.cp-title { font-size: var(--text-title-size, var(--dialog-title-font-size, 1.5rem)); font-weight: var(--text-title-weight, 600); line-height: var(--text-title-leading, 1.1); letter-spacing: var(--text-title-tracking, -0.02em); text-transform: var(--text-title-transform, var(--dialog-title-text-transform, none)); }
+.cp-heading { font-size: var(--text-heading-size, var(--notification-title-font-size, var(--tabs-label-font-size, 1.25rem))); font-weight: var(--text-heading-weight, 700); line-height: var(--text-heading-leading, 1.25); text-transform: var(--text-heading-transform, var(--heading-text-transform, none)); }
 .cp-subheading { font-size: var(--text-subheading-size, var(--suggestion-label-font-size, 1.125rem)); font-weight: var(--text-subheading-weight, 600); line-height: var(--text-subheading-leading, 1.2); }
 .cp-body { font-size: var(--text-body-size, var(--body-default-font-size, 1rem)); font-weight: var(--text-body-weight, var(--body-default-font-weight, 400)); line-height: var(--text-body-leading, var(--body-default-line-height, 1.5)); }
 .cp-body-sm { font-size: var(--text-body-sm-size, var(--body-small-font-size, 0.875rem)); font-weight: var(--text-body-sm-weight, 400); line-height: var(--text-body-sm-leading, 1.5); }
-.cp-label { font-size: var(--text-label-size, var(--label-mono-uppercase-font-size, 0.875rem)); font-weight: var(--text-label-weight, 500); }
+.cp-label { font-size: var(--text-label-size, var(--label-mono-uppercase-font-size, 0.875rem)); font-weight: var(--text-label-weight, 500); text-transform: var(--text-label-transform, var(--label-text-transform, var(--label-mono-uppercase-text-transform, none))); }
 .cp-caption { font-size: var(--text-caption-size, var(--badge-tiny-font-size, 0.75rem)); color: var(--cp-muted); }
 
 /* ===================================================================
@@ -2114,6 +2114,62 @@ input[type="color"] {
 .backdrop-light .shadow-val { color: #71717a; }
 .backdrop-dark .shadow-val { color: #a1a1aa; }
 .shadow-cell:hover .shadow-tile { transform: translateY(-1px); transition: transform 0.1s ease; }
+
+/* ===================================================================
+   Shared values (redundancy insight)
+   =================================================================== */
+.dup-group { border: 1px solid var(--border-soft); border-radius: 8px; padding: 8px 10px; margin-top: 8px; background: var(--panel); }
+.dup-group.trivial { opacity: 0.6; }
+.dup-group-head { display: flex; align-items: center; gap: 8px; }
+.dup-swatch { width: 22px; height: 22px; border-radius: 5px; border: 1px solid var(--hairline); flex-shrink: 0; }
+.dup-swatch.glyph { display: flex; align-items: center; justify-content: center; font-size: 10px; color: var(--text-faint); background: var(--bg-elev); }
+.dup-value { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 280px; }
+.dup-tag { font-size: 10px; border-radius: 4px; padding: 1px 6px; border: 1px solid var(--border-soft); color: var(--text-dim); }
+.dup-tag.warn { color: var(--warning); border-color: var(--warning); }
+.dup-tag.muted { color: var(--text-faint); }
+.dup-names { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.dup-alias-mark { color: var(--accent); }
+
+/* ===================================================================
+   Motion (durations + easings)
+   =================================================================== */
+.motion-dur-list { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.motion-dur-row { display: flex; align-items: center; gap: 16px; padding: 8px; border-radius: 6px; cursor: pointer; }
+.motion-dur-row:hover { background: var(--bg-elev); }
+.motion-dur-track { position: relative; flex: 1; min-width: 120px; height: 10px; border-radius: 999px; background: var(--bg-elev-2); overflow: hidden; }
+.motion-dur-bar {
+  position: absolute; inset: 0 auto 0 0; width: 100%; border-radius: 999px; background: var(--accent);
+  transform-origin: left center;
+  animation-name: motion-fill; animation-timing-function: linear; animation-iteration-count: 1; animation-fill-mode: both;
+}
+@keyframes motion-fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+.motion-meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.motion-name { font-size: 12px; color: var(--text); display: inline-flex; align-items: center; }
+.motion-tags { display: flex; gap: 5px; flex-wrap: wrap; }
+.motion-tag { font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.04em; padding: 1px 5px; border-radius: 4px; background: var(--bg-elev-2); color: var(--text-dim); }
+.motion-val { font-size: 10.5px; color: var(--text-faint); }
+
+.motion-ease-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 16px; margin-top: 8px; }
+.motion-ease-cell { display: flex; flex-direction: column; gap: 10px; padding: 0; border: none; background: none; text-align: left; cursor: pointer; font: inherit; }
+.motion-ease-plot { position: relative; width: 100%; aspect-ratio: 1 / 1; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-elev); }
+.motion-curve-svg { position: absolute; inset: 8px; width: calc(100% - 16px); height: calc(100% - 16px); overflow: visible; }
+.motion-curve-box { fill: none; stroke: var(--border-soft); stroke-width: 1; }
+.motion-curve-ref { stroke: var(--border-soft); stroke-width: 1; stroke-dasharray: 3 3; }
+.motion-curve-handle { stroke: var(--accent-dim); stroke-width: 1; }
+.motion-curve-path { fill: none; stroke: var(--accent); stroke-width: 2; }
+.motion-curve-cp { fill: var(--accent); }
+.motion-curve-na { fill: var(--text-faint); font-size: 12px; font-family: var(--mono); }
+.motion-ease-dot {
+  position: absolute; left: 8px; top: 0; width: 9px; height: 9px; margin: -4px 0 0 -4px; border-radius: 50%; background: var(--accent);
+  animation-name: motion-dot; animation-duration: 1.2s; animation-iteration-count: 1; animation-fill-mode: both;
+}
+@keyframes motion-dot { from { top: calc(100% - 8px); } to { top: 8px; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .motion-dur-bar, .motion-ease-dot { animation: none; }
+  .motion-dur-bar { transform: scaleX(1); }
+}
 
 /* ===================================================================
    Theme gallery

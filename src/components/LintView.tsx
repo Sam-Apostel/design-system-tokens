@@ -3,12 +3,16 @@ import { useStore } from "../store";
 import { useNav } from "../nav";
 import { lint, summarize, DEFAULT_LINT_CONFIG, type LintIssue } from "../lib/lint";
 import { tabForIssue } from "../lib/issueNav";
+import { duplicateValueGroups, duplicateSummary, type DuplicateGroup } from "../lib/duplicates";
+import { parseColor, toCssDisplay } from "../lib/color";
 
 export function LintView() {
   const { tokens, byName } = useStore();
   const { navigate } = useNav();
   const issues = useMemo(() => lint(tokens, DEFAULT_LINT_CONFIG), [tokens]);
   const counts = summarize(issues);
+  const dupGroups = useMemo(() => duplicateValueGroups(tokens, byName), [tokens, byName]);
+  const dupStats = duplicateSummary(dupGroups);
 
   const targetFor = (i: LintIssue) => {
     if (!i.tokens[0]) return null;
@@ -48,6 +52,27 @@ export function LintView() {
         })
       )}
 
+      <div className="card dup-section" style={{ marginTop: 16 }}>
+        <div className="section-title">
+          Shared values <span className="count">({dupGroups.length})</span>
+        </div>
+        {dupGroups.length === 0 ? (
+          <div className="empty">No value is shared by two or more tokens.</div>
+        ) : (
+          <>
+            <p className="hint" style={{ marginTop: 0 }}>
+              {dupStats.redundantNames} tokens collapse to {dupGroups.length} distinct value{dupGroups.length === 1 ? "" : "s"}.
+              Groups marked <span className="dup-tag warn">redundant</span> have two or more tokens that independently
+              hard-code the same literal — candidates to point at one primitive via <span className="mono">var()</span>.
+              Exact values only (no fuzzy color matching). Click a name to open the token.
+            </p>
+            {dupGroups.map((g) => (
+              <DupGroupCard key={g.normalizedValue} g={g} onOpen={(name) => navigate("tokens", name)} />
+            ))}
+          </>
+        )}
+      </div>
+
       <div className="card" style={{ marginTop: 16 }}>
         <div className="section-title">Rules applied</div>
         <ul className="muted rules-list">
@@ -61,6 +86,34 @@ export function LintView() {
           <li><span className="mono">duplicate/near-color</span> — flags perceptually near-identical colors.</li>
           <li><span className="mono">contrast/insufficient</span> — text-on-surface pairs below WCAG AA (4.5:1).</li>
         </ul>
+      </div>
+    </div>
+  );
+}
+
+function DupGroupCard({ g, onOpen }: { g: DuplicateGroup; onOpen: (name: string) => void }) {
+  const rgb = g.kind === "color" ? parseColor(g.value) : null;
+  return (
+    <div className={`dup-group ${g.trivial ? "trivial" : ""}`}>
+      <div className="dup-group-head">
+        {rgb ? (
+          <span className="dup-swatch" style={{ background: toCssDisplay(rgb) }} />
+        ) : (
+          <span className="dup-swatch glyph">{"{ }"}</span>
+        )}
+        <span className="dup-value mono" title={g.value}>{g.value}</span>
+        <span className="count">×{g.tokens.length}</span>
+        {!g.allAlias && !g.trivial && <span className="dup-tag warn">redundant</span>}
+        {g.allAlias && <span className="dup-tag" title="One literal, the rest alias it — expected.">aliases</span>}
+        {g.trivial && <span className="dup-tag muted">trivial</span>}
+      </div>
+      <div className="dup-names">
+        {g.tokens.map((t) => (
+          <button key={t.id} className="chip-btn mono" onClick={() => onOpen(t.name)} title={`Open --${t.name}`}>
+            --{t.name}
+            {t.value.kind === "ref" ? <span className="dup-alias-mark"> →</span> : null}
+          </button>
+        ))}
       </div>
     </div>
   );

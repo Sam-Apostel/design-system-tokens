@@ -7,7 +7,7 @@ import { bestBackgroundFor } from "../lib/contrastAudit";
 import { lint, issuesByToken } from "../lib/lint";
 import type { Token } from "../types";
 
-type Prop = "family" | "size" | "weight" | "line" | "tracking" | "other";
+type Prop = "family" | "size" | "weight" | "line" | "tracking" | "transform" | "other";
 
 interface TypoToken {
   token: Token;
@@ -22,13 +22,14 @@ const PROP_LABEL: Record<Prop, string> = {
   weight: "Font weights",
   line: "Line heights",
   tracking: "Letter spacing",
+  transform: "Text transforms",
   other: "Other type tokens",
 };
 
 const STOP = new Set([
   "font", "text", "type", "typography", "size", "weight", "line", "height",
   "lineheight", "leading", "letter", "spacing", "tracking", "family", "face",
-  "color", "colour", "fill", "ink",
+  "color", "colour", "fill", "ink", "transform",
 ]);
 
 function propOf(name: string, value: string | null): Prop {
@@ -39,6 +40,7 @@ function propOf(name: string, value: string | null): Prop {
   if (/line-?height|leading/.test(n)) return "line";
   if (/letter-?spacing|tracking/.test(n)) return "tracking";
   if (/size/.test(n)) return "size";
+  if (/(text-)?transform|uppercase|lowercase|capitalize/.test(n)) return "transform";
   if (/^\d{3}$/.test(v)) return "weight";
   if (/(px|rem|em)$/.test(v)) return "size";
   return "other";
@@ -138,7 +140,7 @@ export function TypographyView({ onNewStyle }: { onNewStyle?: () => void }) {
     );
   }
 
-  const PROP_ORDER: Prop[] = ["family", "size", "weight", "line", "tracking", "other"];
+  const PROP_ORDER: Prop[] = ["family", "size", "weight", "line", "tracking", "transform", "other"];
 
   return (
     <div>
@@ -170,10 +172,12 @@ export function TypographyView({ onNewStyle }: { onNewStyle?: () => void }) {
                 fontWeight: find("weight") ? Number(find("weight")) : undefined,
                 lineHeight: find("line"),
                 letterSpacing: find("tracking"),
+                textTransform: find("transform") as React.CSSProperties["textTransform"],
                 color: colorTok?.raw ?? undefined,
               };
               const tracking = find("tracking");
-              const specs = [find("size"), find("weight"), find("line"), tracking && tracking !== "0" && tracking !== "0rem" ? tracking : null, shortFamily(find("family") ?? defaultFamily)].filter(Boolean);
+              const xform = find("transform");
+              const specs = [find("size"), find("weight"), find("line"), tracking && tracking !== "0" && tracking !== "0rem" ? tracking : null, shortFamily(find("family") ?? defaultFamily), xform && xform !== "none" ? xform : null].filter(Boolean);
               // Render the sample on the style's own surface where possible
               // (comment-author → comment-bg), else a readable default.
               const textRgb = (colorTok && parseColor(colorTok.raw ?? "")) || defaultTextRgb;
@@ -257,6 +261,8 @@ function sampleStyle(prop: Prop, raw: string | null, family?: string): React.CSS
       return { ...base, fontSize: 15, lineHeight: raw, maxWidth: 520 };
     case "tracking":
       return { ...base, letterSpacing: raw };
+    case "transform":
+      return { ...base, textTransform: raw as React.CSSProperties["textTransform"] };
     default:
       return base;
   }

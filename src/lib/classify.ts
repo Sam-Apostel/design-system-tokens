@@ -1,6 +1,7 @@
 import type { TokenCategory } from "../types";
 import { isColor } from "./color";
 import { isShadowToken } from "./shadows";
+import { isMotionToken } from "./motion";
 
 const LENGTH_RE = /^-?[\d.]+(px|rem|em|%|vh|vw|vmin|vmax|ch|ex|pt|pc|cm|mm|in)$/i;
 const UNITLESS_NUM_RE = /^-?[\d.]+$/;
@@ -42,6 +43,12 @@ export function classify(name: string, finalRaw: string | null): TokenCategory {
   // through to "other". A token named *-shadow-color stays a color (handled
   // above) — only real shadow definitions reach here.
   if (isShadowToken(name, v)) return "shadow";
+
+  // Durations (ms/s) and easings (keyword / cubic-bezier / steps), or tokens
+  // named duration/transition/animation/delay/easing/ease/bezier/motion. After
+  // color+shadow so those still win, but before length/typography/spacing — a
+  // value like `400ms` isn't a CSS length and would otherwise fall to "other".
+  if (isMotionToken(name, v)) return "motion";
 
   // A bare percentage whose name reads as a ratio (color-mix amount, opacity,
   // blend) is NOT a spacing/size token — keep it out of the spacing bucket.

@@ -1,9 +1,10 @@
 import type { Token } from "../types";
-import { valueToCss } from "./value";
+import { valueToCss, resolve, indexByName } from "./value";
 import { topGroupOf } from "./groups";
 import { spacingKind } from "./spacing";
+import { groupCompositeTokens } from "./composite";
 
-export type ExportFormat = "css" | "json" | "scss" | "js" | "tailwind";
+export type ExportFormat = "css" | "classes" | "json" | "scss" | "js" | "tailwind";
 
 export interface FormatMeta {
   id: ExportFormat;
@@ -14,6 +15,7 @@ export interface FormatMeta {
 
 export const FORMATS: FormatMeta[] = [
   { id: "css", label: "CSS", ext: "css", filename: "tokens.css" },
+  { id: "classes", label: "CSS classes", ext: "css", filename: "classes.css" },
   { id: "json", label: "JSON (W3C)", ext: "json", filename: "tokens.json" },
   { id: "scss", label: "SCSS", ext: "scss", filename: "_tokens.scss" },
   { id: "js", label: "JS / TS", ext: "ts", filename: "tokens.ts" },
@@ -47,6 +49,34 @@ export function toCss(tokens: Token[], opts: CssOptions): string {
     lines.push(`  --${t.name}: ${valueToCss(t.value)};`);
   }
   return `${opts.selector} {\n${lines.join("\n")}\n}\n`;
+}
+
+/* ----------------------------- composite CSS classes ----------------------------- */
+
+export interface ClassesOptions {
+  /** Selector prefix; "." for class selectors. */
+  selectorPrefix?: string;
+  /** Emit resolved literals instead of var(--token) references. */
+  resolve?: boolean;
+}
+
+/** Emit one CSS class per composite group whose token leaves map to CSS props. */
+export function toClasses(tokens: Token[], byName: Map<string, Token>, opts: ClassesOptions = {}): string {
+  const prefix = opts.selectorPrefix ?? ".";
+  const groups = groupCompositeTokens(order(tokens));
+  if (groups.length === 0) {
+    return "/* No composite groups found. Name tokens like\n   `body-default-font-size`, `body-default-text-color` so leaves map to CSS props. */\n";
+  }
+  const blocks = groups.map((g) => {
+    const decls = g.members.map((m) => {
+      const val = opts.resolve
+        ? resolve(m.token, byName).finalRaw ?? valueToCss(m.token.value)
+        : `var(--${m.token.name})`;
+      return `  ${m.prop}: ${val};`;
+    });
+    return `${prefix}${g.key} {\n${decls.join("\n")}\n}`;
+  });
+  return blocks.join("\n\n") + "\n";
 }
 
 /* ----------------------------- SCSS ----------------------------- */
@@ -231,11 +261,15 @@ export function exportTokens(
   format: ExportFormat,
   css: CssOptions,
   modeList: string[] = ["base"],
+  byName?: Map<string, Token>,
+  classOpts?: ClassesOptions,
 ): string {
   switch (format) {
     case "css":
       if (css.lightDark && hasLightDark(modeList)) return toCssLightDark(tokens);
       return modeList.length > 1 ? toCssMultiMode(tokens, modeList) : toCss(tokens, css);
+    case "classes":
+      return toClasses(tokens, byName ?? indexByName(tokens), classOpts);
     case "json":
       return toJsonW3C(tokens);
     case "scss":

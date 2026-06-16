@@ -9,6 +9,7 @@ export type Tab =
   | "components"
   | "spacing"
   | "shadows"
+  | "motion"
   | "typography"
   | "checks"
   | "tokens";
